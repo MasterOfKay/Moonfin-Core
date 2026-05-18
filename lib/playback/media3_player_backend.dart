@@ -53,6 +53,9 @@ class Media3PlayerBackend implements PlayerBackend {
   final _playingStream = StreamController<bool>.broadcast();
   final _bufferingStream = StreamController<bool>.broadcast();
   final _completedStream = StreamController<bool>.broadcast();
+  final _errorStream = StreamController<Map<String, dynamic>>.broadcast();
+
+  Stream<Map<String, dynamic>> get errorStream => _errorStream.stream;
 
   Future<T?> _invoke<T>(String method, [dynamic arguments]) async {
     if (_disposed) return null;
@@ -130,6 +133,13 @@ class Media3PlayerBackend implements PlayerBackend {
       case 'activityAction':
         _activityActionController.add(map.cast<String, dynamic>());
       case 'error':
+        _errorStream.add(map.cast<String, dynamic>());
+        _isPlaying = false;
+        _isBuffering = false;
+        _completed = false;
+        _playingStream.add(false);
+        _bufferingStream.add(false);
+        _completedStream.add(false);
     }
   }
 
@@ -501,5 +511,6 @@ class Media3PlayerBackend implements PlayerBackend {
     _playingStream.close();
     _bufferingStream.close();
     _completedStream.close();
+    _errorStream.close();
   }
 }

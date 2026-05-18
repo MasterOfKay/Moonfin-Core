@@ -22,6 +22,7 @@ import '../../data/services/youtube_stream_resolver.dart';
 import '../../data/viewmodels/media_bar_view_model.dart';
 import '../../preference/preference_constants.dart';
 import '../../preference/user_preferences.dart';
+import '../navigation/app_router.dart';
 import '../navigation/destinations.dart';
 import '../../util/platform_detection.dart';
 import '../../l10n/app_localizations.dart';
@@ -74,7 +75,6 @@ class _MediaBarState extends State<MediaBar>
   final _backgroundService = GetIt.instance<BackgroundService>();
   final _playbackManager = GetIt.instance<PlaybackManager>();
   final _media3TrailerBackend = GetIt.instance<Media3PlayerBackend>();
-  RouteInformationProvider? _routeInformationProvider;
   bool _isHomeRouteActive = true;
 
   Timer? _autoAdvanceTimer;
@@ -93,6 +93,7 @@ class _MediaBarState extends State<MediaBar>
   StreamSubscription<bool>? _mainPlaybackSub;
   StreamSubscription<bool>? _trailerCompletedSub;
   StreamSubscription<bool>? _media3TrailerCompletedSub;
+  StreamSubscription<Map<String, dynamic>>? _media3EventSub;
   Timer? _trailerRevealTimer;
   double _trailerVideoOpacity = 0.0;
   String? _activeTrailerItemId;
@@ -104,6 +105,7 @@ class _MediaBarState extends State<MediaBar>
   String? _activeYouTubeVideoId;
   String? _pendingYouTubeVideoId;
   String? _lastSyncedMakdBackdropUrl;
+  final Set<String> _failedTrailerItemIds = <String>{};
   late bool _lastHardwareDecodingEnabled;
   late bool _lastUseMedia3TrailerEngine;
   late final AnimationController _makdKenBurnsController;
@@ -137,21 +139,17 @@ class _MediaBarState extends State<MediaBar>
     _mainPlaybackSub = _playbackManager.state.playingStream.listen(
       _onMainPlaybackChanged,
     );
+    _media3EventSub = _media3TrailerBackend.errorStream.listen(
+      _onMedia3BackendEvent,
+      onError: (_) {},
+    );
+    _isHomeRouteActive = _isHomePath(
+      appRouter.routerDelegate.currentConfiguration.uri.path,
+    );
+    appRouter.routerDelegate.addListener(_onRouteChanged);
     widget.viewModel.addListener(_onStateChanged);
     widget.prefs.addListener(_onPrefsChanged);
     WidgetsBinding.instance.addObserver(this);
-  }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    final provider = GoRouter.of(context).routeInformationProvider;
-    if (!identical(provider, _routeInformationProvider)) {
-      _routeInformationProvider?.removeListener(_onRouteChanged);
-      _routeInformationProvider = provider;
-      _routeInformationProvider?.addListener(_onRouteChanged);
-      _onRouteChanged();
-    }
   }
 
   @override
@@ -159,14 +157,24 @@ class _MediaBarState extends State<MediaBar>
     _autoAdvanceTimer?.cancel();
     _trailerRevealTimer?.cancel();
     _mainPlaybackSub?.cancel();
+    _media3EventSub?.cancel();
     _disposeTrailerPlayer();
     _makdKenBurnsController.dispose();
     _pageController.dispose();
     widget.viewModel.removeListener(_onStateChanged);
     widget.prefs.removeListener(_onPrefsChanged);
     WidgetsBinding.instance.removeObserver(this);
-    _routeInformationProvider?.removeListener(_onRouteChanged);
+    appRouter.routerDelegate.removeListener(_onRouteChanged);
     super.dispose();
+  }
+
+  bool _isHomePath(String path) {
+    return path == Destinations.home ||
+        path.startsWith('${Destinations.home}/');
+  }
+
+  bool _isHomeRouteCurrent() {
+    return _isHomePath(appRouter.routerDelegate.currentConfiguration.uri.path);
   }
 
   bool _useMedia3TrailerEngine() {
@@ -233,12 +241,33 @@ class _MediaBarState extends State<MediaBar>
       _prefetchAround(state.items, _currentIndex);
       _prefetchAllInBackground(state.items, _currentIndex);
     }
+    if (state is MediaBarReady && _failedTrailerItemIds.isNotEmpty) {
+      final knownItemIds = state.items.map((item) => item.itemId).toSet();
+      _failedTrailerItemIds.removeWhere((id) => !knownItemIds.contains(id));
+    }
     if (_isHomeRouteActive && state is MediaBarReady && state.items.isNotEmpty) {
       _startAutoAdvance();
       if (_activeTrailerItemId == null && _currentIndex < state.items.length) {
         _scheduleTrailerPreview(state.items[_currentIndex]);
       }
       _syncMakdBackdropWithCurrentSlide();
+    }
+  }
+
+  void _markTrailerFailed(String? itemId) {
+    if (itemId == null || itemId.isEmpty) return;
+    _failedTrailerItemIds.add(itemId);
+    if (_failedTrailerItemIds.length <= 256) return;
+    _failedTrailerItemIds.remove(_failedTrailerItemIds.first);
+  }
+
+  void _onMedia3BackendEvent(Map<String, dynamic> _) {
+    if (!_trailerUsingMedia3 || !_isHomeRouteActive) return;
+    if (_activeTrailerItemId == null) return;
+
+    _markTrailerFailed(_activeTrailerItemId);
+    if (mounted) {
+      _cancelTrailerPreview();
     }
   }
 
@@ -363,9 +392,8 @@ class _MediaBarState extends State<MediaBar>
   }
 
   void _onRouteChanged() {
-    final path = _routeInformationProvider?.value.uri.path ?? '';
-    final isHome = path == Destinations.home ||
-        path.startsWith('${Destinations.home}/');
+    final path = appRouter.routerDelegate.currentConfiguration.uri.path;
+    final isHome = _isHomePath(path);
     if (_isHomeRouteActive == isHome) return;
 
     _isHomeRouteActive = isHome;
@@ -488,6 +516,7 @@ class _MediaBarState extends State<MediaBar>
     if (!widget.prefs.get(UserPreferences.mediaBarTrailerPreview)) return;
     if (!_isHomeRouteActive) return;
     if (_mainPlaybackActive) return;
+    if (_failedTrailerItemIds.contains(item.itemId)) return;
     if (_activeTrailerItemId == item.itemId && _trailerVideoOpacity > 0) return;
 
     _trailerRevealTimer?.cancel();
@@ -532,7 +561,7 @@ class _MediaBarState extends State<MediaBar>
 
   Future<void> _prepareTrailerPreview(
       MediaBarSlideItem item, int resolveId) async {
-    if (_mainPlaybackActive) return;
+    if (_mainPlaybackActive || !_isHomeRouteCurrent()) return;
     final client = _clientForServer(item.serverId);
     String? streamUrl;
     bool useYouTubeHeaders = false;
@@ -611,7 +640,12 @@ class _MediaBarState extends State<MediaBar>
             'headers': YouTubeStreamResolver.youtubeHeaders,
         };
         await _media3TrailerBackend.play(payload).timeout(_openTimeout);
-        if (!mounted || resolveId != _trailerResolveId) return;
+        if (!mounted ||
+            resolveId != _trailerResolveId ||
+            !_isHomeRouteCurrent()) {
+          await _media3TrailerBackend.stop();
+          return;
+        }
       } else {
         _trailerUsingMedia3 = false;
         final player = _ensureTrailerPlayer();
@@ -622,7 +656,12 @@ class _MediaBarState extends State<MediaBar>
             ? Media(streamUrl, httpHeaders: YouTubeStreamResolver.youtubeHeaders)
             : Media(streamUrl);
         await player.open(media).timeout(_openTimeout);
-        if (!mounted || resolveId != _trailerResolveId) return;
+        if (!mounted ||
+            resolveId != _trailerResolveId ||
+            !_isHomeRouteCurrent()) {
+          await player.stop();
+          return;
+        }
       }
 
       setState(() {
@@ -631,6 +670,7 @@ class _MediaBarState extends State<MediaBar>
       });
       await _tryRevealPreparedTrailer(item, resolveId);
     } catch (_) {
+      _markTrailerFailed(item.itemId);
       if (mounted) _cancelTrailerPreview();
     }
   }
@@ -665,11 +705,17 @@ class _MediaBarState extends State<MediaBar>
 
     if (_trailerUsingMedia3) {
       final audioEnabled = widget.prefs.get(UserPreferences.previewAudioEnabled);
-      await _media3TrailerBackend.setVolume(audioEnabled ? 100 : 0);
-      if (!mounted || resolveId != _trailerResolveId) return;
+      try {
+        await _media3TrailerBackend.setVolume(audioEnabled ? 100 : 0);
+        if (!mounted || resolveId != _trailerResolveId) return;
 
-      await _media3TrailerBackend.resume();
-      if (!mounted || resolveId != _trailerResolveId) return;
+        await _media3TrailerBackend.resume();
+        if (!mounted || resolveId != _trailerResolveId) return;
+      } catch (_) {
+        _markTrailerFailed(item.itemId);
+        _cancelTrailerPreview();
+        return;
+      }
 
       _isTrailerPlaying = true;
       _autoAdvanceTimer?.cancel();
@@ -684,11 +730,17 @@ class _MediaBarState extends State<MediaBar>
     if (player == null) return;
 
     final audioEnabled = widget.prefs.get(UserPreferences.previewAudioEnabled);
-    await player.setVolume(audioEnabled ? 100 : 0);
-    if (!mounted || resolveId != _trailerResolveId) return;
+    try {
+      await player.setVolume(audioEnabled ? 100 : 0);
+      if (!mounted || resolveId != _trailerResolveId) return;
 
-    await player.play();
-    if (!mounted || resolveId != _trailerResolveId) return;
+      await player.play();
+      if (!mounted || resolveId != _trailerResolveId) return;
+    } catch (_) {
+      _markTrailerFailed(item.itemId);
+      _cancelTrailerPreview();
+      return;
+    }
 
     _isTrailerPlaying = true;
     _autoAdvanceTimer?.cancel();

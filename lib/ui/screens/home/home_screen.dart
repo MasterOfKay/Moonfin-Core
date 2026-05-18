@@ -577,6 +577,7 @@ class _ContentRowsState extends State<_ContentRows>
   List<double> _rowTopOffsets = [];
   double _overlayBottom = 0;
   static const _previewScrollThreshold = 150.0;
+  static const _previewOpenTimeout = Duration(seconds: 10);
   static const _pinTransitionDistance = 96.0;
   static const _previewStartDelay = Duration(milliseconds: 1200);
   static const _focusHandoffDuration = Duration(milliseconds: 220);
@@ -734,6 +735,7 @@ class _ContentRowsState extends State<_ContentRows>
       windowManager.addListener(this);
     }
     appRouter.routerDelegate.addListener(_onRouteChanged);
+    _lastObservedPath = appRouter.routerDelegate.currentConfiguration.uri.path;
     FocusManager.instance.addListener(_onGlobalFocusChanged);
     SettingsPanel.isOpenNotifier.addListener(_onSettingsPanelOpenChanged);
     _lastMedia3PreviewPreference = _useMedia3InlinePreview();
@@ -921,7 +923,7 @@ class _ContentRowsState extends State<_ContentRows>
 
     _previewDelayTimer?.cancel();
     _previewDelayTimer = Timer(delay, () async {
-      if (!mounted) {
+      if (!mounted || !_isHomeRouteActive()) {
         return;
       }
 
@@ -932,6 +934,13 @@ class _ContentRowsState extends State<_ContentRows>
       });
       await _startSharedPreview(item, previewKey);
     });
+  }
+
+  bool _isPreviewRequestActive(int requestId, String previewKey) {
+    return mounted &&
+        requestId == _previewRequestId &&
+        _activePreviewKey == previewKey &&
+        _isHomeRouteActive();
   }
 
   void _stopPreviewFor(AggregatedItem item) {
@@ -983,7 +992,7 @@ class _ContentRowsState extends State<_ContentRows>
   }
 
   Future<void> _startSharedPreview(AggregatedItem item, String previewKey) async {
-    if (_chromeFocusActive || _mainPlaybackActive) {
+    if (_chromeFocusActive || _mainPlaybackActive || !_isHomeRouteActive()) {
       _finishSharedPreview(releaseResources: true);
       return;
     }
@@ -1010,7 +1019,7 @@ class _ContentRowsState extends State<_ContentRows>
         return;
       }
       final target = await _resolvePreviewTargetItem(client, item);
-      if (!mounted || target == null || requestId != _previewRequestId || _activePreviewKey != previewKey) {
+      if (!_isPreviewRequestActive(requestId, previewKey) || target == null) {
         return;
       }
 
@@ -1034,39 +1043,43 @@ class _ContentRowsState extends State<_ContentRows>
       if (useMedia3) {
         _previewUsingMedia3 = true;
         await _media3PreviewBackend.setVolume(previewVolume);
-        if (!mounted || requestId != _previewRequestId || _activePreviewKey != previewKey) {
+        if (!_isPreviewRequestActive(requestId, previewKey)) {
           return;
         }
 
         await _media3PreviewBackend.play(<String, dynamic>{
           'url': previewUrl,
           'mediaType': 'video',
-        });
-        if (!mounted || requestId != _previewRequestId || _activePreviewKey != previewKey) {
+        }).timeout(_previewOpenTimeout);
+        if (!_isPreviewRequestActive(requestId, previewKey)) {
+          await _media3PreviewBackend.stop();
           return;
         }
       } else {
         _previewUsingMedia3 = false;
         final player = _ensureSharedPreviewPlayer();
         await player.setVolume(previewVolume);
-        if (!mounted || requestId != _previewRequestId || _activePreviewKey != previewKey) {
+        if (!_isPreviewRequestActive(requestId, previewKey)) {
           return;
         }
 
-        await player.open(Media(previewUrl));
-        if (!mounted || requestId != _previewRequestId || _activePreviewKey != previewKey) {
+        await player.open(Media(previewUrl)).timeout(_previewOpenTimeout);
+        if (!_isPreviewRequestActive(requestId, previewKey)) {
+          await player.stop();
           return;
         }
 
         if (previewAudioEnabled) {
           await player.setVolume(100.0);
-          if (!mounted || requestId != _previewRequestId || _activePreviewKey != previewKey) {
+          if (!_isPreviewRequestActive(requestId, previewKey)) {
+            await player.stop();
             return;
           }
         }
 
         await player.setPlaylistMode(PlaylistMode.loop);
-        if (!mounted || requestId != _previewRequestId || _activePreviewKey != previewKey) {
+        if (!_isPreviewRequestActive(requestId, previewKey)) {
+          await player.stop();
           return;
         }
       }
@@ -1077,11 +1090,11 @@ class _ContentRowsState extends State<_ContentRows>
         }
       });
 
-      if (mounted && requestId == _previewRequestId && _activePreviewKey == previewKey) {
+      if (_isPreviewRequestActive(requestId, previewKey)) {
         setState(() => _previewReady = true);
       }
     } catch (_) {
-      if (mounted && requestId == _previewRequestId && _activePreviewKey == previewKey) {
+      if (_isPreviewRequestActive(requestId, previewKey)) {
         _finishSharedPreview();
       }
     }
@@ -1268,7 +1281,10 @@ class _ContentRowsState extends State<_ContentRows>
   }
 
   bool _isHomeRouteActive() {
-    if (!mounted) return false;
+    final path = appRouter.routerDelegate.currentConfiguration.uri.path;
+    final onHomePath =
+        path == Destinations.home || path.startsWith('${Destinations.home}/');
+    if (!onHomePath || !mounted) return false;
     final route = ModalRoute.of(context);
     return route?.isCurrent ?? true;
   }
