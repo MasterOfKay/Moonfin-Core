@@ -25,6 +25,7 @@ class StreamResolutionResult {
   final String mediaSourceId;
   final String? liveStreamId;
   final String? playSessionId;
+  final Map<String, String> requestHeaders;
   final StreamPlayMethod playMethod;
   final String? container;
   final String? videoRangeType;
@@ -39,6 +40,7 @@ class StreamResolutionResult {
     required this.mediaSourceId,
     this.liveStreamId,
     this.playSessionId,
+    this.requestHeaders = const {},
     required this.playMethod,
     this.container,
     this.videoRangeType,

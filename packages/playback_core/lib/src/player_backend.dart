@@ -23,6 +23,7 @@ abstract class PlayerBackend {
   Stream<bool> get playingStream;
   Stream<bool> get bufferingStream;
   Stream<bool> get completedStream;
+  Stream<Map<String, dynamic>>? get errorStream => null;
 
   Map<String, dynamic> getDeviceProfile({bool useProgressiveTranscode = false});
 

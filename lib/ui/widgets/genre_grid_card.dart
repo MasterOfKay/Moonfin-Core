@@ -7,7 +7,6 @@ import '../../util/platform_detection.dart';
 import 'bounded_network_image.dart';
 import 'marquee_text.dart';
 import '../../util/focus/dpad_keys.dart';
-import 'focus/focus_theme.dart';
 import '../mixins/focus_state_mixin.dart';
 
 class GenreCardData {
@@ -52,7 +51,7 @@ class _GenreGridCardState extends State<GenreGridCard> with FocusStateMixin {
   @override
   Widget build(BuildContext context) {
     final borderColor =
-        widget.focusColor ?? Theme.of(context).colorScheme.primary;
+        widget.focusColor ?? ThemeRegistry.active.borders.focusBorder.color;
     final showMarquee = hovered || focused;
     final imageUrl = widget.genre.imageUrl ?? widget.genre.backdropUrl;
     final desktopScale = PlatformDetection.useDesktopUi
@@ -61,25 +60,17 @@ class _GenreGridCardState extends State<GenreGridCard> with FocusStateMixin {
             .scaleFactor
         : 1.0;
     final titleStyle = TextStyle(
-      fontSize: 16 * desktopScale,
+      fontSize: (widget.centerTitle ? 15 : 16) * desktopScale,
       fontWeight: FontWeight.w600,
+      height: 1.08,
       color: AppColorScheme.onSurface,
     );
     final subtitleStyle = TextStyle(
       fontSize: 12 * desktopScale,
+      height: 1.0,
       color: AppColorScheme.onSurface.withAlpha(178),
     );
-    final textScaler = MediaQuery.textScalerOf(context);
-
-    double lineHeightFor(TextStyle style, {int lines = 1}) {
-      final fontSize = style.fontSize ?? 12;
-      final height = style.height ?? 1.2;
-      return (textScaler.scale(fontSize) * height * lines) + 2;
-    }
-
     final titleMaxLines = widget.centerTitle ? 2 : 1;
-    final titleHeight = lineHeightFor(titleStyle, lines: titleMaxLines);
-    final subtitleHeight = lineHeightFor(subtitleStyle);
     return MouseRegion(
       cursor: SystemMouseCursors.click,
       onEnter: (_) {
@@ -102,14 +93,29 @@ class _GenreGridCardState extends State<GenreGridCard> with FocusStateMixin {
         child: GestureDetector(
           onTap: widget.onTap,
           child: AnimatedScale(
-            scale: widget.cardFocusExpansion && showFocusBorder ? 1.03 : 1.0,
+            scale: widget.cardFocusExpansion && showFocusBorder ? 1.05 : 1.0,
             duration: const Duration(milliseconds: 150),
             child: DecoratedBox(
               position: DecorationPosition.foreground,
-              decoration: FocusTheme.focusDecoration(
-                isFocused: showFocusBorder,
-                radius: 10,
-                color: borderColor,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(10),
+                border: showFocusBorder
+                    ? Border.fromBorderSide(
+                        ThemeRegistry.active.borders.focusBorder.copyWith(
+                          color: borderColor,
+                          width: 2.4,
+                        ),
+                      )
+                    : null,
+                boxShadow: showFocusBorder
+                    ? [
+                        BoxShadow(
+                          color: AppColorScheme.accent.withAlpha(145),
+                          blurRadius: 14,
+                          spreadRadius: 1.2,
+                        ),
+                      ]
+                    : null,
               ),
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(8),
@@ -135,7 +141,7 @@ class _GenreGridCardState extends State<GenreGridCard> with FocusStateMixin {
                           end: Alignment.bottomCenter,
                           colors: [
                             Colors.transparent,
-                            AppColorScheme.scrim.withAlpha(180),
+                            AppColorScheme.scrim.withAlpha(165),
                           ],
                         ),
                       ),
@@ -143,45 +149,41 @@ class _GenreGridCardState extends State<GenreGridCard> with FocusStateMixin {
                     Positioned(
                       left: 12 * desktopScale,
                       right: 12 * desktopScale,
-                      bottom: 10 * desktopScale,
+                      bottom: 8 * desktopScale,
                       child: Column(
                         crossAxisAlignment: widget.centerTitle
                             ? CrossAxisAlignment.center
                             : CrossAxisAlignment.start,
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          SizedBox(
-                            height: titleHeight,
-                            child: showMarquee
+                          showMarquee
+                              ? MarqueeText(
+                                  text: widget.genre.name,
+                                  style: titleStyle,
+                                )
+                              : Text(
+                                  widget.genre.name,
+                                  maxLines: titleMaxLines,
+                                  overflow: TextOverflow.ellipsis,
+                                  textAlign: widget.centerTitle
+                                      ? TextAlign.center
+                                      : TextAlign.start,
+                                  style: titleStyle,
+                                ),
+                          if (widget.genre.itemCount > 0) ...[
+                            const SizedBox(height: 2),
+                            showMarquee
                                 ? MarqueeText(
-                                    text: widget.genre.name,
-                                    style: titleStyle,
+                                    text: '${widget.genre.itemCount} items',
+                                    style: subtitleStyle,
                                   )
                                 : Text(
-                                    widget.genre.name,
-                                    maxLines: titleMaxLines,
+                                    '${widget.genre.itemCount} items',
+                                    maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
-                                    textAlign: widget.centerTitle
-                                        ? TextAlign.center
-                                        : TextAlign.start,
-                                    style: titleStyle,
+                                    style: subtitleStyle,
                                   ),
-                          ),
-                          if (widget.genre.itemCount > 0)
-                            SizedBox(
-                              height: subtitleHeight,
-                              child: showMarquee
-                                  ? MarqueeText(
-                                      text: '${widget.genre.itemCount} items',
-                                      style: subtitleStyle,
-                                    )
-                                  : Text(
-                                      '${widget.genre.itemCount} items',
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: subtitleStyle,
-                                    ),
-                            ),
+                          ],
                         ],
                       ),
                     ),

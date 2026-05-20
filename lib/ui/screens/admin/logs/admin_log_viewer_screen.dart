@@ -8,6 +8,7 @@ import 'package:moonfin_design/moonfin_design.dart';
 import 'package:server_core/server_core.dart';
 
 import '../../../../l10n/app_localizations.dart';
+import '../../../../util/platform_detection.dart';
 
 class AdminLogViewerScreen extends StatefulWidget {
   final String fileName;
@@ -201,11 +202,12 @@ class _AdminLogViewerScreenState extends State<AdminLogViewerScreen> {
                 onPressed: _copyAll,
                 icon: const Icon(Icons.copy_all),
               ),
-              IconButton(
-                tooltip: AppLocalizations.of(context).save,
-                onPressed: _saveToFile,
-                icon: const Icon(Icons.download),
-              ),
+              if (!PlatformDetection.isTV)
+                IconButton(
+                  tooltip: AppLocalizations.of(context).save,
+                  onPressed: _saveToFile,
+                  icon: const Icon(Icons.download),
+                ),
               IconButton(
                 tooltip: AppLocalizations.of(context).refresh,
                 onPressed: _loadLog,

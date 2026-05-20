@@ -420,9 +420,6 @@ class _AllGenresScreenState extends State<AllGenresScreen> {
             final genre = _genres[index];
             return GenreGridCard(
               genre: genre,
-              focusColor: Color(
-                _prefs.get(UserPreferences.focusColor).colorValue,
-              ),
               cardFocusExpansion: _prefs.get(
                 UserPreferences.cardFocusExpansion,
               ),

@@ -61,11 +61,12 @@ Future<void> showAppUpdateDialog(
     builder: (ctx) => Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        _UpdateOption(
-          icon: Icons.download_rounded,
-          label: downloadLabel,
-          value: 'download',
-        ),
+        if (!PlatformDetection.isTV)
+          _UpdateOption(
+            icon: Icons.download_rounded,
+            label: downloadLabel,
+            value: 'download',
+          ),
         _UpdateOption(
           icon: Icons.article_outlined,
           label: l10n.readReleaseNotes,
@@ -169,6 +170,7 @@ Future<void> _startInAppDownload(
 
   final path = donePath;
   if (path == null) return;
+  if (!context.mounted) return;
 
   if (AppDistribution.isAndroidApkBuild) {
     await _installApkAndroid(path, context);

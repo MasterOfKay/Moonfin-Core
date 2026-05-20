@@ -115,6 +115,8 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
   double? _remoteVolume;
   DateTime? _lastCastErrorAt;
   String? _lastCastErrorMessage;
+  DateTime? _lastPlaybackErrorAt;
+  String? _lastPlaybackErrorMessage;
   bool _isInPiP = false;
   bool _forcedLandscape = false;
   double _playerVolume = 100.0;
@@ -292,7 +294,8 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
         item.type == 'AudioBook' ||
         mediaType == 'Audio';
 
-    return client.serverType == ServerType.jellyfin &&
+    return !PlatformDetection.isTV &&
+        client.serverType == ServerType.jellyfin &&
         (user?.canManageSubtitles ?? false) &&
         item.mediaSources.isNotEmpty &&
         item.type != 'Photo' &&
@@ -674,6 +677,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
       setState(() {
         _bringupState = state;
       });
+      _showBringupFailureIfAny(state);
       unawaited(_syncAutoHdrSwitching());
     });
     _zoomMode = _prefs.get(UserPreferences.playerZoomMode);
@@ -717,6 +721,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
       if (PlatformDetection.useNativeVideoSurface) {
         _syncSubtitleActive();
       }
+      _showBringupFailureIfAny(_bringupState);
       unawaited(_pushMedia3UiMetadata());
       unawaited(_syncAutoHdrSwitching());
     });
@@ -953,6 +958,39 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  void _showThrottledPlaybackError(String message) {
+    final normalized = message.trim();
+    if (normalized.isEmpty) {
+      return;
+    }
+
+    final now = DateTime.now();
+    final lastAt = _lastPlaybackErrorAt;
+    final repeated = _lastPlaybackErrorMessage == normalized;
+    if (repeated &&
+        lastAt != null &&
+        now.difference(lastAt) < const Duration(seconds: 3)) {
+      return;
+    }
+
+    _lastPlaybackErrorAt = now;
+    _lastPlaybackErrorMessage = normalized;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(normalized)));
+  }
+
+  void _showBringupFailureIfAny(PlaybackBringupState state) {
+    if (state.phase != PlaybackBringupPhase.failed) {
+      return;
+    }
+    final error = state.error?.trim();
+    if (error == null || error.isEmpty) {
+      return;
+    }
+    _showThrottledPlaybackError(error);
   }
 
   Future<void> _refreshRemoteVolume() async {

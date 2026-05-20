@@ -5796,7 +5796,7 @@ class _LibrivoxBookDetailScreen extends StatelessWidget {
                       icon: const Icon(Icons.rss_feed_rounded),
                       label: Text(l10n.rssFeed),
                     ),
-                  if ((book.zipUrl ?? '').isNotEmpty)
+                  if (!PlatformDetection.isTV && (book.zipUrl ?? '').isNotEmpty)
                     ElevatedButton.icon(
                       onPressed: () => _openExternal(book.zipUrl!),
                       icon: const Icon(Icons.download_rounded),

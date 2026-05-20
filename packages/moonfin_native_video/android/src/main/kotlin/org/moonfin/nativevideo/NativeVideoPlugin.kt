@@ -11,7 +11,6 @@ import io.flutter.plugin.platform.PlatformView
 import io.flutter.plugin.platform.PlatformViewFactory
 
 class NativeVideoPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, EventChannel.StreamHandler {
-
     private var media3ControlChannel: MethodChannel? = null
     private var media3EventsChannel: EventChannel? = null
     private var media3ActivityChannel: MethodChannel? = null

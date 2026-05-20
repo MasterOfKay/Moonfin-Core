@@ -60,6 +60,7 @@ class Media3PlayerBackend implements PlayerBackend {
   final _completedStream = StreamController<bool>.broadcast();
   final _errorStream = StreamController<Map<String, dynamic>>.broadcast();
 
+  @override
   Stream<Map<String, dynamic>> get errorStream => _errorStream.stream;
 
   Future<T?> _invoke<T>(String method, [dynamic arguments]) async {
@@ -143,6 +144,8 @@ class Media3PlayerBackend implements PlayerBackend {
         _bufferingStream.add(false);
       case 'activityAction':
         _activityActionController.add(map.cast<String, dynamic>());
+      case 'playerError':
+        _errorStream.add(map.cast<String, dynamic>());
       case 'error':
         _errorStream.add(map.cast<String, dynamic>());
         _isPlaying = false;
@@ -243,10 +246,10 @@ class Media3PlayerBackend implements PlayerBackend {
       'preferFfmpeg': _prefs.get(UserPreferences.preferExoPlayerFfmpeg),
       'tunnelingDisabled': _sessionTunnelingDisabled,
     });
-
     await _invoke<void>('setSource', {
       'url': url,
       'headers': headers,
+      'autoPlay': true,
       'startPositionMs': startPosition.inMilliseconds,
       'container': container,
       'videoRangeType': videoRangeType,

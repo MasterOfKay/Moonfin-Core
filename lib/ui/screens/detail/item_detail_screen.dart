@@ -1825,7 +1825,8 @@ class _DetailContentState extends State<_DetailContent> {
                 viewModel.tracks.isNotEmpty &&
                 viewModel.tracks.every(_isAudioItem)));
     final canDeleteDownloaded =
-        item.type == 'MusicAlbum' || item.type == 'AudioBook';
+      !PlatformDetection.isTV &&
+      (item.type == 'MusicAlbum' || item.type == 'AudioBook');
     return [
       _AlbumHeader(
         item: item,
@@ -5199,7 +5200,8 @@ class _ActionButtonsState extends State<_ActionButtons> {
         item.type == 'AudioBook' ||
         mediaType == 'Audio';
 
-    return client.serverType == ServerType.jellyfin &&
+    return !PlatformDetection.isTV &&
+        client.serverType == ServerType.jellyfin &&
         (user?.canManageSubtitles ?? false) &&
         item.mediaSources.isNotEmpty &&
         item.type != 'Photo' &&
@@ -5995,7 +5997,7 @@ bool _isDownloadable(String? type) {
 
 bool _canUserDownload() {
   final user = GetIt.instance<UserRepository>().currentUser;
-  return user?.canDownload ?? false;
+  return !PlatformDetection.isTV && (user?.canDownload ?? false);
 }
 
 class _DownloadButton extends StatefulWidget {

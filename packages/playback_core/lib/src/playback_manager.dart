@@ -63,6 +63,9 @@ class PlaybackManager {
   Duration _deferredStartPosition = Duration.zero;
   bool _deferPlaybackToExternalPlayer = false;
   bool _skipExternalRoutingOnce = false;
+  bool _awaitingNativeAudioRetryResult = false;
+  bool _unsupportedAudioRecoveryInFlight = false;
+  bool _suppressNextGenericBackendError = false;
   final _backendChangedController = StreamController<PlayerBackend>.broadcast();
   final _bringupStateController =
       StreamController<PlaybackBringupState>.broadcast();
@@ -125,6 +128,7 @@ class PlaybackManager {
     String? container,
     String? videoRangeType,
     String? mediaType,
+    Map<String, String> headers = const {},
     double? normalizationGainDb,
   }) {
     final resolvedMediaType = mediaType?.trim().toLowerCase();
@@ -133,6 +137,7 @@ class PlaybackManager {
       if (container != null && container.isNotEmpty) 'container': container,
       if (videoRangeType != null && videoRangeType.isNotEmpty)
         'videoRangeType': videoRangeType,
+      if (headers.isNotEmpty) 'headers': headers,
       'mediaType':
           (resolvedMediaType == 'audio' || resolvedMediaType == 'video')
           ? resolvedMediaType
@@ -194,6 +199,9 @@ class PlaybackManager {
       return;
     }
     final previous = _backend;
+    _awaitingNativeAudioRetryResult = false;
+    _unsupportedAudioRecoveryInFlight = false;
+    _suppressNextGenericBackendError = false;
     _disposeStreamSubs();
     _backend = backend;
     _retainedBackends.add(backend);
@@ -315,6 +323,16 @@ class PlaybackManager {
       backend.bufferingStream.listen(state.setBuffering),
       backend.completedStream.listen(_onTrackCompleted),
     ]);
+
+    final errorStream = backend.errorStream;
+    if (errorStream != null) {
+      _streamSubs.add(
+        errorStream.listen(
+          _onBackendErrorEvent,
+          onError: (_) {},
+        ),
+      );
+    }
   }
 
   void _disposeStreamSubs() {
@@ -394,6 +412,88 @@ class PlaybackManager {
 
     _isAutoNexting = true;
     _autoNext().whenComplete(() => _isAutoNexting = false);
+  }
+
+  void _onBackendErrorEvent(Map<String, dynamic> event) {
+    unawaited(_handleBackendErrorEvent(event));
+  }
+
+  Future<void> _handleBackendErrorEvent(Map<String, dynamic> event) async {
+    final eventType = event['event']?.toString();
+    final kind = event['kind']?.toString();
+    final recoverable = event['recoverable'] == true;
+    final resolution = _currentResolution ?? _lastPlaybackResolution;
+    final queueItem = queueService.currentItem;
+
+    void emitFailedBringupState(String fallbackMessage) {
+      final message = event['message']?.toString().trim();
+      _setBringupState(
+        PlaybackBringupState(
+          phase: PlaybackBringupPhase.failed,
+          sessionToken: _playbackSessionToken,
+          itemId: queueItem == null ? null : _traceItemId(queueItem),
+          backend: _traceBackendName(_backend),
+          playMethod: resolution?.playMethod.name,
+          error: message != null && message.isNotEmpty
+              ? message
+              : fallbackMessage,
+        ),
+      );
+    }
+
+    if (eventType == 'error') {
+      if (_suppressNextGenericBackendError) {
+        _suppressNextGenericBackendError = false;
+        return;
+      }
+
+      _awaitingNativeAudioRetryResult = false;
+      emitFailedBringupState('Playback failed.');
+      return;
+    }
+
+    if (eventType != 'playerError') {
+      return;
+    }
+
+    if (!recoverable) {
+      _suppressNextGenericBackendError = true;
+      _awaitingNativeAudioRetryResult = false;
+      emitFailedBringupState('Playback failed.');
+      return;
+    }
+
+    if (kind != 'unsupported_audio') {
+      return;
+    }
+
+    _suppressNextGenericBackendError = true;
+
+    if (event['audioOffloadRetryTriggered'] == true) {
+      _awaitingNativeAudioRetryResult = true;
+      return;
+    }
+
+    if (_awaitingNativeAudioRetryResult) {
+      _awaitingNativeAudioRetryResult = false;
+    }
+
+    if (resolution == null ||
+        resolution.playMethod == StreamPlayMethod.transcode ||
+        _isOfflinePlayback ||
+        _waitingForMedia ||
+        _unsupportedAudioRecoveryInFlight) {
+      return;
+    }
+
+    _awaitingNativeAudioRetryResult = false;
+    _unsupportedAudioRecoveryInFlight = true;
+    try {
+      await _reResolveAtCurrentPosition(forceTranscode: true);
+    } catch (_) {
+    } finally {
+      _unsupportedAudioRecoveryInFlight = false;
+    }
   }
 
   Future<void> _autoNext() async {
@@ -608,6 +708,9 @@ class PlaybackManager {
     }
 
     _playbackStartTime = DateTime.now();
+    _awaitingNativeAudioRetryResult = false;
+    _unsupportedAudioRecoveryInFlight = false;
+    _suppressNextGenericBackendError = false;
     _waitingForMedia = true;
     bool mediaReady = false;
     Object? startupError;
@@ -620,6 +723,7 @@ class PlaybackManager {
         container: resolution.container,
         videoRangeType: resolution.videoRangeType,
         mediaType: resolution.mediaType,
+        headers: resolution.requestHeaders,
         normalizationGainDb: resolution.normalizationGainDb,
       );
       await _backend!.play(
@@ -848,6 +952,7 @@ class PlaybackManager {
     bool isTranscode = false,
     Duration timeout = _defaultMediaReadyTimeout,
   }) async {
+
     bool isReady() {
       if (_backend!.duration > Duration.zero) return true;
 
@@ -861,15 +966,18 @@ class PlaybackManager {
       return false;
     }
 
-    if (isReady()) return true;
+    if (isReady()) {
+      return true;
+    }
 
     final attempts =
         timeout.inMilliseconds ~/ _mediaReadyPollInterval.inMilliseconds;
     for (var i = 0; i < attempts; i++) {
       await Future.delayed(_mediaReadyPollInterval);
-      if (isReady()) return true;
+      if (isReady()) {
+        return true;
+      }
     }
-
     return false;
   }
 

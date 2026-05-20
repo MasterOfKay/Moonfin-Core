@@ -10,6 +10,7 @@ import '../admin_plugin_version_utils.dart';
 import '../providers/admin_user_providers.dart';
 import 'plugin_web_settings_screen.dart';
 import '../../../../l10n/app_localizations.dart';
+import '../../../../util/platform_detection.dart';
 
 final _packageInfoProvider =
     FutureProvider.family<PackageInfo?, String>((ref, pluginId) async {
@@ -585,7 +586,7 @@ class _ActionsSection extends StatelessWidget {
                   : (_) => onToggle(),
             ),
             const Divider(),
-            if (onInstallUpdate != null)
+            if (!PlatformDetection.isTV && onInstallUpdate != null)
               ListTile(
                 contentPadding: EdgeInsets.zero,
                 leading: Icon(
@@ -599,7 +600,7 @@ class _ActionsSection extends StatelessWidget {
                 ),
                 onTap: onInstallUpdate,
               ),
-            if (onInstallUpdate != null) const Divider(),
+            if (!PlatformDetection.isTV && onInstallUpdate != null) const Divider(),
             ListTile(
               contentPadding: EdgeInsets.zero,
               leading: Icon(Icons.web, color: theme.colorScheme.primary),

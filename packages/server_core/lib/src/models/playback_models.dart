@@ -91,6 +91,7 @@ enum PlaybackErrorCode {
 class PlaybackMediaSource {
   final String id;
   final String? name;
+  final String? eTag;
   final String? container;
   final int? bitrate;
   final bool supportsDirectPlay;
@@ -106,6 +107,7 @@ class PlaybackMediaSource {
   const PlaybackMediaSource({
     required this.id,
     this.name,
+    this.eTag,
     this.container,
     this.bitrate,
     this.supportsDirectPlay = false,
@@ -123,6 +125,7 @@ class PlaybackMediaSource {
       PlaybackMediaSource(
         id: json['Id'] as String? ?? '',
         name: json['Name'] as String?,
+        eTag: (json['ETag'] as String?) ?? (json['Etag'] as String?),
         container: json['Container'] as String?,
         bitrate: json['Bitrate'] as int?,
         supportsDirectPlay: json['SupportsDirectPlay'] as bool? ?? false,

@@ -197,6 +197,7 @@ class Media3VideoView(
     private var ticker: Runnable? = null
     private var currentUrl: String? = null
     private var currentHeaders: Map<String, String> = emptyMap()
+    private lateinit var httpDataSourceFactory: DefaultHttpDataSource.Factory
     private var requestedSubtitleRendererMode: SubtitleRendererMode = SubtitleRendererMode.NATIVE
     private var activeSubtitleRendererMode: SubtitleRendererMode = SubtitleRendererMode.NATIVE
     private var selectedSubtitleCodec: String? = null
@@ -212,10 +213,25 @@ class Media3VideoView(
     private var currentContainer: String? = null
     private var currentVideoRangeType: String? = null
     private var currentMediaType: String = "video"
+    private var audioOffloadDisabled = false
+    private var audioOffloadRetryAttemptedForCurrentSource = false
     private var sessionTunnelingDisabled = Media3Bridge.sessionTunnelingDisabledEnabled()
     private var isDisposed = false
     private var firstFrameRendered = false
+    private var lastStateLogAtMs = 0L
+    private var lastStateLogSignature = ""
     private val externalSubtitleConfigurations = mutableListOf<MediaItem.SubtitleConfiguration>()
+
+    private fun shouldLogStateSnapshot(): Boolean {
+        val signature = "${player.isPlaying}|${player.playbackState}|${player.currentPosition}|${player.duration}|${player.bufferedPosition}|${player.playWhenReady}"
+        val nowMs = System.currentTimeMillis()
+        if (signature != lastStateLogSignature || nowMs - lastStateLogAtMs >= 1000L) {
+            lastStateLogSignature = signature
+            lastStateLogAtMs = nowMs
+            return true
+        }
+        return false
+    }
 
     private val listener = object : Player.Listener {
         @Suppress("DEPRECATION")
@@ -257,7 +273,8 @@ class Media3VideoView(
         }
 
         override fun onPlayerError(error: PlaybackException) {
-            emitRecoverablePlayerError(error)
+            val offloadRetryTriggered = retryAudioWithoutOffloadIfNeeded(error)
+            emitRecoverablePlayerError(error, offloadRetryTriggered)
             Media3Bridge.emitEvent(
                 mapOf(
                     "event" to "error",
@@ -364,9 +381,9 @@ class Media3VideoView(
             .setConstantBitrateSeekingEnabled(true)
             .setConstantBitrateSeekingAlwaysEnabled(true)
 
-        val bootHttpFactory = DefaultHttpDataSource.Factory()
+        httpDataSourceFactory = DefaultHttpDataSource.Factory()
             .setAllowCrossProtocolRedirects(true)
-        val bootDataSourceFactory = DefaultDataSource.Factory(context, bootHttpFactory)
+        val bootDataSourceFactory = DefaultDataSource.Factory(context, httpDataSourceFactory)
         val assHandler = AssHandler(AssRenderType.CUES)
         val assParserFactory = AssSubtitleParserFactory(assHandler)
         val bootMediaSourceFactory = DefaultMediaSourceFactory(
@@ -401,6 +418,7 @@ class Media3VideoView(
         player.clearVideoSurface()
         player.release()
         player = createPlayer()
+        httpDataSourceFactory.setDefaultRequestProperties(currentHeaders)
     }
 
     override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
@@ -674,6 +692,7 @@ class Media3VideoView(
         val args = arguments as? Map<*, *> ?: return
         val url = args["url"]?.toString() ?: return
         val startPositionMs = (args["startPositionMs"] as? Number)?.toLong() ?: 0L
+        val autoPlay = args["autoPlay"] as? Boolean ?: false
 
         if (decoderPreferenceDirty) {
             rebuildPlayerForDecoderPreference()
@@ -691,6 +710,7 @@ class Media3VideoView(
             ?.uppercase()
             ?.takeIf { it.isNotEmpty() }
         currentMediaType = args["mediaType"]?.toString()?.lowercase() ?: "video"
+        audioOffloadRetryAttemptedForCurrentSource = false
         currentNormalizationGainDb = (args["normalizationGainDb"] as? Number)?.toFloat()
 
         currentUrl = url
@@ -704,6 +724,7 @@ class Media3VideoView(
             }
             ?.toMap()
             ?: emptyMap()
+        httpDataSourceFactory.setDefaultRequestProperties(currentHeaders)
 
         resetTrackSelectionsForNewSource()
         externalSubtitleConfigurations.clear()
@@ -719,7 +740,7 @@ class Media3VideoView(
         refreshSubtitleRendererMode()
         applyAudioAttributesForCurrentMediaType()
         audioPipeline.normalizationGainDb = currentNormalizationGainDb
-        setMediaItem(startPositionMs, playWhenReady = false)
+        setMediaItem(startPositionMs, playWhenReady = autoPlay)
     }
 
     private fun revealVideo() {
@@ -768,7 +789,7 @@ class Media3VideoView(
                 !sessionTunnelingDisabled &&
                 isHdrLikeRangeType(currentVideoRangeType)
 
-        val offloadMode = if (isAudioContent) {
+        val offloadMode = if (isAudioContent && !audioOffloadDisabled) {
             TrackSelectionParameters.AudioOffloadPreferences.AUDIO_OFFLOAD_MODE_ENABLED
         } else {
             TrackSelectionParameters.AudioOffloadPreferences.AUDIO_OFFLOAD_MODE_DISABLED
@@ -1068,34 +1089,122 @@ class Media3VideoView(
         val mediaItemBuilder = MediaItem.Builder()
             .setUri(url)
             .setSubtitleConfigurations(subtitleConfigurations)
-        inferStreamMimeType(url, currentContainer)?.let { mimeType ->
+        val inferredMimeType = inferStreamMimeType(url, currentContainer, currentMediaType)
+        inferredMimeType?.let { mimeType ->
             mediaItemBuilder.setMimeType(mimeType)
         }
         val mediaItem = mediaItemBuilder.build()
         player.setMediaItem(mediaItem, startPositionMs)
         player.prepare()
-        player.playWhenReady = playWhenReady
+        if (playWhenReady) {
+            player.playWhenReady = true
+            player.play()
+        } else {
+            player.playWhenReady = false
+        }
         emitState()
     }
 
-    private fun inferStreamMimeType(url: String, container: String?): String? {
-        val normalizedContainer = container?.lowercase()
-        if (normalizedContainer == "hls" || normalizedContainer == "m3u8") {
-            return MimeTypes.APPLICATION_M3U8
-        }
-        if (normalizedContainer == "dash" || normalizedContainer == "mpd") {
-            return MimeTypes.APPLICATION_MPD
+    private fun inferStreamMimeType(url: String, container: String?, mediaType: String?): String? {
+        val normalizedMediaType = mediaType?.trim()?.lowercase()
+        val containerTokens = container
+            ?.split(',', ';', '|', ' ')
+            ?.mapNotNull { token -> token.trim().lowercase().takeIf { it.isNotEmpty() } }
+            ?: emptyList()
+        var resolvedMimeType: String? = null
+
+        for (token in containerTokens) {
+            if (token == "hls" || token == "m3u8") {
+                resolvedMimeType = MimeTypes.APPLICATION_M3U8
+                break
+            }
+            if (token == "dash" || token == "mpd") {
+                resolvedMimeType = MimeTypes.APPLICATION_MPD
+                break
+            }
+
+            val inferredMimeType = inferAudioMimeType(token, normalizedMediaType)
+            if (inferredMimeType != null) {
+                resolvedMimeType = inferredMimeType
+                break
+            }
         }
 
-        val normalizedUrl = url.lowercase()
-        if (normalizedUrl.contains(".m3u8")) {
-            return MimeTypes.APPLICATION_M3U8
-        }
-        if (normalizedUrl.contains(".mpd")) {
-            return MimeTypes.APPLICATION_MPD
+        if (resolvedMimeType == null) {
+            val normalizedUrl = url.lowercase()
+            resolvedMimeType = when {
+                normalizedUrl.contains(".m3u8") -> MimeTypes.APPLICATION_M3U8
+                normalizedUrl.contains(".mpd") -> MimeTypes.APPLICATION_MPD
+                normalizedUrl.contains(".flac") -> MimeTypes.AUDIO_FLAC
+                normalizedUrl.contains(".mp3") -> MimeTypes.AUDIO_MPEG
+                normalizedUrl.contains(".m4a") || normalizedUrl.contains(".aac") -> MimeTypes.AUDIO_AAC
+                normalizedUrl.contains(".opus") -> MimeTypes.AUDIO_OPUS
+                normalizedUrl.contains(".ogg") || normalizedUrl.contains(".oga") -> MimeTypes.AUDIO_OGG
+                normalizedUrl.contains(".wav") || normalizedUrl.contains(".wave") -> MimeTypes.AUDIO_WAV
+                normalizedUrl.contains(".ac3") -> MimeTypes.AUDIO_AC3
+                normalizedUrl.contains(".eac3") -> MimeTypes.AUDIO_E_AC3
+                normalizedUrl.contains(".dts") -> MimeTypes.AUDIO_DTS
+                normalizedUrl.contains(".mka") -> MimeTypes.AUDIO_MATROSKA
+                else -> null
+            }
         }
 
-        return null
+        return resolvedMimeType
+    }
+
+    private fun inferAudioMimeType(containerToken: String, mediaType: String?): String? {
+        return when (containerToken) {
+            "mp3" -> MimeTypes.AUDIO_MPEG
+            "flac" -> MimeTypes.AUDIO_FLAC
+            "aac" -> MimeTypes.AUDIO_AAC
+            "m4a",
+            "m4b",
+            -> MimeTypes.AUDIO_AAC
+
+            "mp4" -> if (mediaType == "audio") MimeTypes.AUDIO_AAC else null
+            "opus" -> MimeTypes.AUDIO_OPUS
+            "ogg",
+            "oga",
+            -> MimeTypes.AUDIO_OGG
+
+            "wav",
+            "wave",
+            -> MimeTypes.AUDIO_WAV
+
+            "wma" -> "audio/x-ms-wma"
+            "alac" -> "audio/alac"
+            "ac3" -> MimeTypes.AUDIO_AC3
+            "eac3" -> MimeTypes.AUDIO_E_AC3
+            "dts" -> MimeTypes.AUDIO_DTS
+            "mka",
+            "matroska",
+            -> MimeTypes.AUDIO_MATROSKA
+
+            else -> null
+        }
+    }
+
+    private fun retryAudioWithoutOffloadIfNeeded(error: PlaybackException): Boolean {
+        val isAudioContent = currentMediaType == "audio"
+        val isRetryableError =
+            error.errorCode == PlaybackException.ERROR_CODE_AUDIO_TRACK_INIT_FAILED ||
+                error.errorCode == PlaybackException.ERROR_CODE_DECODING_FORMAT_UNSUPPORTED
+
+        if (!isAudioContent || !isRetryableError || audioOffloadDisabled || audioOffloadRetryAttemptedForCurrentSource) {
+            return false
+        }
+
+        audioOffloadRetryAttemptedForCurrentSource = true
+        val mediaItem = player.currentMediaItem ?: return false
+        val retryPositionMs = player.currentPosition.coerceAtLeast(0L)
+        val playWhenReady = player.playWhenReady
+
+        audioOffloadDisabled = true
+        applyTrackSelectorForCurrentSource()
+        player.setMediaItem(mediaItem, retryPositionMs)
+        player.prepare()
+        player.playWhenReady = playWhenReady
+        return true
     }
 
     private fun isHdrLikeRangeType(videoRangeType: String?): Boolean {
@@ -1105,7 +1214,10 @@ class Media3VideoView(
         return videoRangeType.contains("HDR") || videoRangeType.contains("DOVI")
     }
 
-    private fun emitRecoverablePlayerError(error: PlaybackException) {
+    private fun emitRecoverablePlayerError(
+        error: PlaybackException,
+        audioOffloadRetryTriggered: Boolean,
+    ) {
         val recoverableKind = when (error.errorCode) {
             PlaybackException.ERROR_CODE_AUDIO_TRACK_INIT_FAILED,
             PlaybackException.ERROR_CODE_AUDIO_TRACK_WRITE_FAILED,
@@ -1127,6 +1239,7 @@ class Media3VideoView(
                 "kind" to recoverableKind,
                 "code" to error.errorCode,
                 "message" to (error.localizedMessage ?: ""),
+                "audioOffloadRetryTriggered" to audioOffloadRetryTriggered,
             ),
         )
     }
@@ -1273,6 +1386,8 @@ class Media3VideoView(
     }
 
     private fun emitState() {
+        if (shouldLogStateSnapshot()) {
+        }
         Media3Bridge.emitEvent(
             mapOf(
                 "event" to "state",

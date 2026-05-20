@@ -9,6 +9,7 @@ import 'package:server_core/server_core.dart';
 
 import '../../data/models/aggregated_item.dart';
 import '../../data/services/media_server_client_factory.dart';
+import '../../util/platform_detection.dart';
 import '../navigation/app_router.dart';
 import '../navigation/destinations.dart';
 
@@ -78,6 +79,10 @@ class _MiniAudioPlayerState extends State<MiniAudioPlayer> {
 
   @override
   Widget build(BuildContext context) {
+    if (PlatformDetection.isTV) {
+      return const SizedBox.shrink();
+    }
+
     final item = _currentItem;
     if (item == null || !_isAudioLikeItem(item)) {
       return const SizedBox.shrink();

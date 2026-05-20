@@ -901,6 +901,9 @@ class MediaKitPlayerBackend implements PlayerBackend {
   Stream<bool> get completedStream => _player.stream.completed;
 
   @override
+  Stream<Map<String, dynamic>>? get errorStream => null;
+
+  @override
   Future<void> setPlaybackSpeed(double speed) async {
     if (PlatformDetection.isAndroid && PlatformDetection.isTV) {
       try {

@@ -1,4 +1,3 @@
-
 import 'package:playback_core/playback_core.dart';
 import 'package:server_core/server_core.dart';
 
@@ -6,6 +5,41 @@ class JellyfinMediaStreamResolver implements MediaStreamResolver {
   final MediaServerClient _client;
 
   JellyfinMediaStreamResolver(this._client);
+
+  Map<String, String> _buildRequestHeaders() {
+    final token = _client.accessToken;
+    final headers = <String, String>{
+      'Authorization': buildServerAuthorizationHeader(
+        scheme: 'MediaBrowser',
+        deviceInfo: _client.deviceInfo,
+        accessToken: token,
+      ),
+    };
+    if (token != null && token.isNotEmpty) {
+      headers['X-Emby-Token'] = token;
+    }
+    return headers;
+  }
+
+  bool _isAudioMediaItem(dynamic mediaItem) {
+    bool isAudioType(String? rawType) {
+      final type = rawType?.trim().toLowerCase();
+      return type == 'audio';
+    }
+
+    try {
+      final dynamic dyn = mediaItem;
+      if (isAudioType(dyn.type?.toString())) {
+        return true;
+      }
+    } catch (_) {}
+
+    if (mediaItem is Map && isAudioType(mediaItem['Type']?.toString())) {
+      return true;
+    }
+
+    return false;
+  }
 
   @override
   Future<StreamResolutionResult> resolve(
@@ -50,7 +84,11 @@ class JellyfinMediaStreamResolver implements MediaStreamResolver {
     }
 
     final source = _selectBestSource(info.mediaSources, preferredId: mediaSourceId);
-    var (url, playMethod) = _resolveStreamUrl(itemId, source);
+    final hasKnownMediaStreams = source.mediaStreams.isNotEmpty;
+    final hasVideoStream = source.mediaStreams.any((stream) => stream['Type'] == 'Video');
+    final isAudioByStreams = hasKnownMediaStreams && !hasVideoStream;
+    final isAudio = isAudioByStreams || _isAudioMediaItem(mediaItem);
+    var (url, playMethod) = _resolveStreamUrl(itemId, source, isAudio: isAudio);
 
     if (playMethod == StreamPlayMethod.transcode) {
       url = MediaStreamResolver.applyStreamIndices(url, audioStreamIndex, subtitleStreamIndex);
@@ -88,12 +126,14 @@ class JellyfinMediaStreamResolver implements MediaStreamResolver {
         .firstWhere((value) => value != null && value.isNotEmpty, orElse: () => null);
     final normalizationGainDb =
         MediaStreamResolver.extractNormalizationGainDb(source.mediaStreams);
+    final requestHeaders = _buildRequestHeaders();
 
     return StreamResolutionResult(
       streamUrl: url,
       mediaSourceId: source.id,
       liveStreamId: source.liveStreamId,
       playSessionId: info.playSessionId,
+      requestHeaders: requestHeaders,
       playMethod: playMethod,
       container: source.container,
       videoRangeType: videoRangeType,
@@ -111,12 +151,16 @@ class JellyfinMediaStreamResolver implements MediaStreamResolver {
   }) {
     if (preferredId != null) {
       final preferred = sources.where((s) => s.id == preferredId).firstOrNull;
-      if (preferred != null) return preferred;
+      if (preferred != null) {
+        return preferred;
+      }
     }
     PlaybackMediaSource? directStream;
     PlaybackMediaSource? transcode;
     for (final s in sources) {
-      if (s.supportsDirectPlay) return s;
+      if (s.supportsDirectPlay) {
+        return s;
+      }
       directStream ??= s.supportsDirectStream ? s : null;
       transcode ??= s.supportsTranscoding ? s : null;
     }
@@ -132,10 +176,35 @@ class JellyfinMediaStreamResolver implements MediaStreamResolver {
     return '$url${separator}api_key=${Uri.encodeComponent(token)}';
   }
 
+  String _buildDirectPlayAudioUrl(String itemId, PlaybackMediaSource source) {
+    final params = <String, String>{
+      if (source.id.isNotEmpty) 'MediaSourceId': source.id,
+      if (source.container != null && source.container!.isNotEmpty)
+        'Container': source.container!,
+      if (source.eTag != null && source.eTag!.isNotEmpty)
+        'Tag': source.eTag!,
+      if (source.liveStreamId != null && source.liveStreamId!.isNotEmpty)
+        'LiveStreamId': source.liveStreamId!,
+      'Static': 'true',
+    };
+    final query = params.entries
+        .map((entry) => '${entry.key}=${Uri.encodeQueryComponent(entry.value)}')
+        .join('&');
+    return '${_client.baseUrl}/Audio/$itemId/stream?$query';
+  }
+
   (String, StreamPlayMethod) _resolveStreamUrl(
     String itemId,
-    PlaybackMediaSource source,
-  ) {
+    PlaybackMediaSource source, {
+    bool isAudio = false,
+  }) {
+    if (source.supportsDirectPlay && isAudio) {
+      return (
+        _buildDirectPlayAudioUrl(itemId, source),
+        StreamPlayMethod.directPlay,
+      );
+    }
+
     if (source.supportsDirectPlay) {
       return (
         _client.playbackApi.getStreamUrl(itemId, mediaSourceId: source.id, liveStreamId: source.liveStreamId),
