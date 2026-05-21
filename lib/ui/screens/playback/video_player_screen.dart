@@ -3384,23 +3384,25 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        if (seriesName != null)
-          Text(
-            seriesName,
-            style: const TextStyle(
-              color: Colors.white70,
-              fontSize: AppTypography.fontSizeSm,
-            ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-        if (logoUrl != null)
+        if (logoUrl != null) ...[
           Image.network(
             logoUrl,
-            height: 34,
+            height: 64,
             fit: BoxFit.contain,
             alignment: Alignment.centerLeft,
             errorBuilder: (_, _, _) => Text(
+              seriesName ?? titleText,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: AppTypography.fontSizeLg,
+                fontWeight: FontWeight.w600,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          if (episodeInfo != null)
+            Text(
               titleText,
               style: const TextStyle(
                 color: Colors.white,
@@ -3410,8 +3412,17 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
-          )
-        else
+        ] else ...[
+          if (seriesName != null)
+            Text(
+              seriesName,
+              style: const TextStyle(
+                color: Colors.white70,
+                fontSize: AppTypography.fontSizeSm,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
           Text(
             titleText,
             style: const TextStyle(
@@ -3422,6 +3433,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
+        ],
       ],
     );
   }
