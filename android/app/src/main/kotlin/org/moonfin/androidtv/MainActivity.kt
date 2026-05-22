@@ -173,7 +173,13 @@ class MainActivity : AudioServiceActivity() {
                     result.success(MediaCodecCapabilities.queryDolbyVisionCapabilities())
                 }
                 "mediaCodecCapabilities" -> {
-                    result.success(MediaCodecCapabilities.query())
+                    val includeSoftwareDecoders =
+                        call.argument<Boolean>("includeSoftwareDecoders") ?: false
+                    result.success(
+                        MediaCodecCapabilities.query(
+                            includeSoftwareDecoders = includeSoftwareDecoders,
+                        ),
+                    )
                 }
                 "audioCapabilities" -> {
                     result.success(AudioCapabilities.query(this))

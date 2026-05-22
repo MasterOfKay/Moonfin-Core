@@ -331,8 +331,11 @@ class Media3PlayerBackend implements PlayerBackend {
     bool useProgressiveTranscode = false,
   }) {
     final maxBitrate = int.tryParse(_prefs.get(UserPreferences.maxBitrate));
-    final ac3Enabled = _prefs.get(UserPreferences.ac3Enabled);
-    final trueHdEnabled = _prefs.get(UserPreferences.trueHdEnabled);
+    final ac3Enabled =
+        PlatformDetection.useMobileUi || _prefs.get(UserPreferences.ac3Enabled);
+    final trueHdEnabled =
+        PlatformDetection.useMobileUi ||
+        _prefs.get(UserPreferences.trueHdEnabled);
     final dtsEnabled = _prefs.get(UserPreferences.dtsEnabled);
     final maxResolution = _prefs.get(UserPreferences.maxVideoResolution);
 

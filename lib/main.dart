@@ -79,9 +79,19 @@ Future<void> _detectAndSetDisplayCapabilities() async {
     PlatformDetection.setDisplayHdrTypes(
       hdrTypes?.map((value) => value.toString()),
     );
+  } catch (_) {}
+}
+
+Future<void> _detectAndSetCodecCapabilities() async {
+  if (!PlatformDetection.isAndroid) return;
+  try {
+    const channel = MethodChannel('org.moonfin.androidtv/platform');
 
     final codecCaps = await channel.invokeMethod<Map<dynamic, dynamic>>(
       'mediaCodecCapabilities',
+      <String, dynamic>{
+        'includeSoftwareDecoders': !PlatformDetection.isTV,
+      },
     );
     if (codecCaps != null) {
       PlatformDetection.setMediaCodecCapabilities(
@@ -150,6 +160,7 @@ void main() async {
 
   await _detectAndSetTvMode();
   await _detectAndSetDisplayCapabilities();
+  await _detectAndSetCodecCapabilities();
 
   // On Linux the GTK font pipeline loads fonts asynchronously. The first frame
   // can render before MaterialIcons and other fonts are ready, causing icons to

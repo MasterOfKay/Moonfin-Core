@@ -285,7 +285,7 @@ class UserPreferences extends ChangeNotifier {
 
   static final preferExoPlayerFfmpeg = Preference(
     key: 'exoplayer_prefer_ffmpeg',
-    defaultValue: false,
+    defaultValue: !(PlatformDetection.isAndroid && PlatformDetection.isTV),
   );
 
   static final tunnelingFallbackDisabled = Preference(
@@ -326,7 +326,7 @@ class UserPreferences extends ChangeNotifier {
 
   static final audioFallbackToStereoAac = Preference(
     key: 'audio_fallback_to_stereo_aac',
-    defaultValue: true,
+    defaultValue: !PlatformDetection.isAndroid || PlatformDetection.isTV,
   );
 
   static final audioNightMode = Preference(
@@ -336,12 +336,12 @@ class UserPreferences extends ChangeNotifier {
 
   static final ac3Enabled = Preference(
     key: 'pref_bitstream_ac3',
-    defaultValue: true,
+    defaultValue: !(PlatformDetection.isAndroid && PlatformDetection.isTV),
   );
 
   static final trueHdEnabled = Preference(
     key: 'pref_bitstream_truncated_hd',
-    defaultValue: true,
+    defaultValue: !(PlatformDetection.isAndroid && PlatformDetection.isTV),
   );
 
   static final dtsEnabled = Preference(

@@ -1,5 +1,6 @@
 package org.moonfin.androidtv
 
+import android.media.MediaCodecInfo
 import android.media.MediaCodecInfo.CodecProfileLevel
 import android.media.MediaCodecList
 import android.media.MediaFormat
@@ -10,7 +11,14 @@ object MediaCodecCapabilities {
     private const val MIME_VIDEO_AV1 = "video/av01"
     private const val MIME_VIDEO_VC1 = "video/wvc1"
 
-    private val mediaCodecList by lazy { MediaCodecList(MediaCodecList.REGULAR_CODECS) }
+    private fun buildCodecInfos(includeSoftwareDecoders: Boolean): Array<MediaCodecInfo> {
+        val codecListKind = if (includeSoftwareDecoders) {
+            MediaCodecList.ALL_CODECS
+        } else {
+            MediaCodecList.REGULAR_CODECS
+        }
+        return MediaCodecList(codecListKind).codecInfos
+    }
 
     private object DolbyVisionProfiles {
         val profile5: Int by lazy {
@@ -127,46 +135,52 @@ object MediaCodecCapabilities {
         }.getOrNull()?.takeIf { it.isNotBlank() }
     }
 
-    fun query(): Map<String, Any> {
-        val supportsDvP5 = supportsDolbyVisionProfile(DolbyVisionProfiles.profile5)
-        val supportsDvP7 = supportsDolbyVisionProfile(DolbyVisionProfiles.profile7)
-        val supportsDvP8 = supportsDolbyVisionProfile(DolbyVisionProfiles.profile8)
+    fun query(includeSoftwareDecoders: Boolean = false): Map<String, Any> {
+        val codecInfos = buildCodecInfos(includeSoftwareDecoders)
 
-        val supportsAvc = hasCodecForMime(MediaFormat.MIMETYPE_VIDEO_AVC)
+        val supportsDvP5 = supportsDolbyVisionProfile(DolbyVisionProfiles.profile5, codecInfos)
+        val supportsDvP7 = supportsDolbyVisionProfile(DolbyVisionProfiles.profile7, codecInfos)
+        val supportsDvP8 = supportsDolbyVisionProfile(DolbyVisionProfiles.profile8, codecInfos)
+
+        val supportsAvc = hasCodecForMime(MediaFormat.MIMETYPE_VIDEO_AVC, codecInfos)
         val supportsAvcHigh10 = hasDecoder(
             MediaFormat.MIMETYPE_VIDEO_AVC,
             CodecProfileLevel.AVCProfileHigh10,
             CodecProfileLevel.AVCLevel4,
+            codecInfos,
         )
-        val avcMainLevel = getAvcLevel(CodecProfileLevel.AVCProfileMain)
-        val avcHigh10Level = getAvcLevel(CodecProfileLevel.AVCProfileHigh10)
+        val avcMainLevel = getAvcLevel(CodecProfileLevel.AVCProfileMain, codecInfos)
+        val avcHigh10Level = getAvcLevel(CodecProfileLevel.AVCProfileHigh10, codecInfos)
 
-        val supportsHevc = hasCodecForMime(MediaFormat.MIMETYPE_VIDEO_HEVC)
+        val supportsHevc = hasCodecForMime(MediaFormat.MIMETYPE_VIDEO_HEVC, codecInfos)
         val supportsHevcMain10 = hasDecoder(
             MediaFormat.MIMETYPE_VIDEO_HEVC,
             CodecProfileLevel.HEVCProfileMain10,
             CodecProfileLevel.HEVCMainTierLevel4,
+            codecInfos,
         )
-        val hevcMainLevel = getHevcLevel(CodecProfileLevel.HEVCProfileMain)
-        val hevcMain10Level = getHevcLevel(CodecProfileLevel.HEVCProfileMain10)
+        val hevcMainLevel = getHevcLevel(CodecProfileLevel.HEVCProfileMain, codecInfos)
+        val hevcMain10Level = getHevcLevel(CodecProfileLevel.HEVCProfileMain10, codecInfos)
 
         val supportsHevcDolbyVision =
             Build.VERSION.SDK_INT >= Build.VERSION_CODES.N &&
-                hasCodecForMime(MediaFormat.MIMETYPE_VIDEO_DOLBY_VISION)
+                hasCodecForMime(MediaFormat.MIMETYPE_VIDEO_DOLBY_VISION, codecInfos)
         val supportsHevcDolbyVisionEl =
             Build.VERSION.SDK_INT >= Build.VERSION_CODES.N &&
                 hasDecoder(
                     MediaFormat.MIMETYPE_VIDEO_DOLBY_VISION,
                     DolbyVisionProfiles.profile7,
                     CodecProfileLevel.DolbyVisionLevelHd24,
+                    codecInfos,
                 ) &&
-                supportsMultiInstance(MediaFormat.MIMETYPE_VIDEO_HEVC)
+                supportsMultiInstance(MediaFormat.MIMETYPE_VIDEO_HEVC, codecInfos)
         val supportsHevcHdr10 =
             Build.VERSION.SDK_INT >= Build.VERSION_CODES.N &&
                 hasDecoder(
                     MediaFormat.MIMETYPE_VIDEO_HEVC,
                     CodecProfileLevel.HEVCProfileMain10HDR10,
                     CodecProfileLevel.HEVCMainTierLevel4,
+                    codecInfos,
                 )
         val supportsHevcHdr10Plus =
             Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q &&
@@ -174,13 +188,15 @@ object MediaCodecCapabilities {
                     MediaFormat.MIMETYPE_VIDEO_HEVC,
                     CodecProfileLevel.HEVCProfileMain10HDR10Plus,
                     CodecProfileLevel.HEVCMainTierLevel4,
+                    codecInfos,
                 )
 
-        val supportsAv1 = hasCodecForMime(MIME_VIDEO_AV1)
+        val supportsAv1 = hasCodecForMime(MIME_VIDEO_AV1, codecInfos)
         val supportsAv1Main10 = hasDecoder(
             MIME_VIDEO_AV1,
             Av1ProfileLevel.profileMain10,
             Av1ProfileLevel.level5,
+            codecInfos,
         )
         val supportsAv1DolbyVision =
             Build.VERSION.SDK_INT >= Build.VERSION_CODES.N &&
@@ -188,24 +204,27 @@ object MediaCodecCapabilities {
                     MediaFormat.MIMETYPE_VIDEO_DOLBY_VISION,
                     Av1ProfileLevel.dolbyVisionProfile10,
                     CodecProfileLevel.DolbyVisionLevelHd24,
+                    codecInfos,
                 )
         val supportsAv1Hdr10 = hasDecoder(
             MIME_VIDEO_AV1,
             Av1ProfileLevel.profileMain10Hdr10,
             Av1ProfileLevel.level5,
+            codecInfos,
         )
         val supportsAv1Hdr10Plus = hasDecoder(
             MIME_VIDEO_AV1,
             Av1ProfileLevel.profileMain10Hdr10Plus,
             Av1ProfileLevel.level5,
+            codecInfos,
         )
 
-        val supportsVc1 = hasCodecForMime(MIME_VIDEO_VC1)
+        val supportsVc1 = hasCodecForMime(MIME_VIDEO_VC1, codecInfos)
 
-        val maxResolutionAvc = getMaxResolution(MediaFormat.MIMETYPE_VIDEO_AVC)
-        val maxResolutionHevc = getMaxResolution(MediaFormat.MIMETYPE_VIDEO_HEVC)
-        val maxResolutionAv1 = getMaxResolution(MIME_VIDEO_AV1)
-        val maxResolutionVc1 = getMaxResolution(MIME_VIDEO_VC1)
+        val maxResolutionAvc = getMaxResolution(MediaFormat.MIMETYPE_VIDEO_AVC, codecInfos)
+        val maxResolutionHevc = getMaxResolution(MediaFormat.MIMETYPE_VIDEO_HEVC, codecInfos)
+        val maxResolutionAv1 = getMaxResolution(MIME_VIDEO_AV1, codecInfos)
+        val maxResolutionVc1 = getMaxResolution(MIME_VIDEO_VC1, codecInfos)
 
         return mapOf(
             "supportsDvP5" to supportsDvP5,
@@ -262,7 +281,10 @@ object MediaCodecCapabilities {
         )
     }
 
-    private fun supportsDolbyVisionProfile(profile: Int): Boolean {
+    private fun supportsDolbyVisionProfile(
+        profile: Int,
+        codecInfos: Array<MediaCodecInfo>,
+    ): Boolean {
         if (profile < 0) {
             return false
         }
@@ -271,22 +293,27 @@ object MediaCodecCapabilities {
                 MediaFormat.MIMETYPE_VIDEO_DOLBY_VISION,
                 profile,
                 CodecProfileLevel.DolbyVisionLevelHd24,
+                codecInfos,
             )
     }
 
-    private fun getAvcLevel(profile: Int): Int {
-        val level = getDecoderLevel(MediaFormat.MIMETYPE_VIDEO_AVC, profile)
+    private fun getAvcLevel(profile: Int, codecInfos: Array<MediaCodecInfo>): Int {
+        val level = getDecoderLevel(MediaFormat.MIMETYPE_VIDEO_AVC, profile, codecInfos)
         return avcLevels.asReversed().find { level >= it.first }?.second ?: 0
     }
 
-    private fun getHevcLevel(profile: Int): Int {
-        val level = getDecoderLevel(MediaFormat.MIMETYPE_VIDEO_HEVC, profile)
+    private fun getHevcLevel(profile: Int, codecInfos: Array<MediaCodecInfo>): Int {
+        val level = getDecoderLevel(MediaFormat.MIMETYPE_VIDEO_HEVC, profile, codecInfos)
         return hevcLevels.asReversed().find { level >= it.first }?.second ?: 0
     }
 
-    private fun getDecoderLevel(mime: String, profile: Int): Int {
+    private fun getDecoderLevel(
+        mime: String,
+        profile: Int,
+        codecInfos: Array<MediaCodecInfo>,
+    ): Int {
         var maxLevel = 0
-        for (info in mediaCodecList.codecInfos) {
+        for (info in codecInfos) {
             if (info.isEncoder) {
                 continue
             }
@@ -302,8 +329,13 @@ object MediaCodecCapabilities {
         return maxLevel
     }
 
-    private fun hasDecoder(mime: String, profile: Int, level: Int): Boolean {
-        for (info in mediaCodecList.codecInfos) {
+    private fun hasDecoder(
+        mime: String,
+        profile: Int,
+        level: Int,
+        codecInfos: Array<MediaCodecInfo>,
+    ): Boolean {
+        for (info in codecInfos) {
             if (info.isEncoder) {
                 continue
             }
@@ -322,8 +354,8 @@ object MediaCodecCapabilities {
         return false
     }
 
-    private fun hasCodecForMime(mime: String): Boolean {
-        for (info in mediaCodecList.codecInfos) {
+    private fun hasCodecForMime(mime: String, codecInfos: Array<MediaCodecInfo>): Boolean {
+        for (info in codecInfos) {
             if (info.isEncoder) {
                 continue
             }
@@ -334,11 +366,11 @@ object MediaCodecCapabilities {
         return false
     }
 
-    private fun supportsMultiInstance(mime: String): Boolean {
+    private fun supportsMultiInstance(mime: String, codecInfos: Array<MediaCodecInfo>): Boolean {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) {
             return false
         }
-        for (info in mediaCodecList.codecInfos) {
+        for (info in codecInfos) {
             if (info.isEncoder) {
                 continue
             }
@@ -355,11 +387,11 @@ object MediaCodecCapabilities {
         return false
     }
 
-    private fun getMaxResolution(mime: String): Size {
+    private fun getMaxResolution(mime: String, codecInfos: Array<MediaCodecInfo>): Size {
         var maxWidth = 0
         var maxHeight = 0
 
-        for (info in mediaCodecList.codecInfos) {
+        for (info in codecInfos) {
             if (info.isEncoder) {
                 continue
             }

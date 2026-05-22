@@ -249,6 +249,81 @@ Future<void> _migrateAndroidMobilePlaybackEngine(
   }
 }
 
+Future<void> _migrateAndroidTvPassthroughDefaults(
+  PreferenceStore store,
+) async {
+  const migrationKey = 'pref_audio_passthrough_defaults_android_tv_v1';
+
+  if (!PlatformDetection.isAndroid || !PlatformDetection.isTV) {
+    return;
+  }
+
+  if (store.getBool(migrationKey) == true) {
+    return;
+  }
+
+  await store.setBool(UserPreferences.ac3Enabled.key, false);
+  await store.setBool(UserPreferences.trueHdEnabled.key, false);
+  await store.setBool(UserPreferences.dtsEnabled.key, false);
+
+  await store.setBool(UserPreferences.audioPrefsAutoDetected.key, true);
+
+  await store.setBool(migrationKey, true);
+}
+
+Future<void> _migrateAndroidMobileStereoAacFallbackDefault(
+  PreferenceStore store,
+) async {
+  const migrationKey = 'pref_audio_stereo_aac_fallback_android_mobile_v1';
+
+  if (!PlatformDetection.isAndroid || PlatformDetection.isTV) {
+    return;
+  }
+
+  if (store.getBool(migrationKey) == true) {
+    return;
+  }
+
+  await store.setBool(UserPreferences.audioFallbackToStereoAac.key, false);
+  await store.setBool(migrationKey, true);
+}
+
+Future<void> _migrateAndroidMobileAudioDefaults(
+  PreferenceStore store,
+) async {
+  const migrationKey = 'pref_audio_defaults_android_mobile_v1';
+
+  if (!PlatformDetection.isAndroid || PlatformDetection.isTV) {
+    return;
+  }
+
+  if (store.getBool(migrationKey) == true) {
+    return;
+  }
+
+  final shouldResetAc3 =
+      store.containsKey(UserPreferences.ac3Enabled.key) &&
+      store.getBool(UserPreferences.ac3Enabled.key) == false;
+  final shouldResetTrueHd =
+      store.containsKey(UserPreferences.trueHdEnabled.key) &&
+      store.getBool(UserPreferences.trueHdEnabled.key) == false;
+  final shouldResetPreferFfmpeg =
+      store.containsKey(UserPreferences.preferExoPlayerFfmpeg.key) &&
+      store.getBool(UserPreferences.preferExoPlayerFfmpeg.key) == false;
+
+  if (shouldResetAc3) {
+    await store.setBool(UserPreferences.ac3Enabled.key, true);
+  }
+  if (shouldResetTrueHd) {
+    await store.setBool(UserPreferences.trueHdEnabled.key, true);
+  }
+  if (shouldResetPreferFfmpeg) {
+    await store.setBool(UserPreferences.preferExoPlayerFfmpeg.key, true);
+  }
+
+  await store.setBool(migrationKey, true);
+}
+
 Future<void> configureDependencies() async {
   final preferenceStore = PreferenceStore();
   await preferenceStore.init();
@@ -259,6 +334,9 @@ Future<void> configureDependencies() async {
     preferenceStore,
     currentAppVersion: appVersion,
   );
+  await _migrateAndroidTvPassthroughDefaults(preferenceStore);
+  await _migrateAndroidMobileStereoAacFallbackDefault(preferenceStore);
+  await _migrateAndroidMobileAudioDefaults(preferenceStore);
 
   var deviceId = preferenceStore.getString('device_id');
   if (deviceId == null) {

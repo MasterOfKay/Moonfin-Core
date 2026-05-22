@@ -765,6 +765,7 @@ class _DetailContentState extends State<_DetailContent> {
     return [
       _ActionButtons(
         viewModel: viewModel,
+        itemId: viewModel.item?.id,
         selectedMediaSourceId: selectedMediaSourceId,
         onSelectedMediaSourceChanged: onSelectedMediaSourceChanged,
         tvPlayFocusNode: _sectionFocusNode('detailActionButtons'),
@@ -967,6 +968,7 @@ class _DetailContentState extends State<_DetailContent> {
       const SizedBox(height: 20),
       _ActionButtons(
         viewModel: viewModel,
+        itemId: viewModel.item?.id,
         selectedMediaSourceId: selectedMediaSourceId,
         onSelectedMediaSourceChanged: onSelectedMediaSourceChanged,
         tvPlayFocusNode: _sectionFocusNode('detailActionButtons'),
@@ -1079,6 +1081,7 @@ class _DetailContentState extends State<_DetailContent> {
     return [
       _ActionButtons(
         viewModel: viewModel,
+        itemId: viewModel.item?.id,
         selectedMediaSourceId: selectedMediaSourceId,
         onSelectedMediaSourceChanged: onSelectedMediaSourceChanged,
         tvPlayFocusNode: actionButtonsFocusNode,
@@ -1207,6 +1210,7 @@ class _DetailContentState extends State<_DetailContent> {
     return [
       _ActionButtons(
         viewModel: viewModel,
+        itemId: viewModel.item?.id,
         selectedMediaSourceId: selectedMediaSourceId,
         onSelectedMediaSourceChanged: onSelectedMediaSourceChanged,
         tvPlayFocusNode: actionButtonsFocusNode,
@@ -1367,6 +1371,7 @@ class _DetailContentState extends State<_DetailContent> {
     return [
       _ActionButtons(
         viewModel: viewModel,
+        itemId: viewModel.item?.id,
         selectedMediaSourceId: selectedMediaSourceId,
         onSelectedMediaSourceChanged: onSelectedMediaSourceChanged,
         tvPlayFocusNode: _sectionFocusNode('detailActionButtons'),
@@ -1430,6 +1435,7 @@ class _DetailContentState extends State<_DetailContent> {
     return [
       _ActionButtons(
         viewModel: viewModel,
+        itemId: viewModel.item?.id,
         selectedMediaSourceId: selectedMediaSourceId,
         onSelectedMediaSourceChanged: onSelectedMediaSourceChanged,
         tvPlayFocusNode: actionButtonsFocusNode,
@@ -3092,6 +3098,7 @@ class _MetadataRow extends StatelessWidget {
 
 class _ActionButtons extends StatefulWidget {
   final ItemDetailViewModel viewModel;
+  final String? itemId;
   final String? selectedMediaSourceId;
   final ValueChanged<String?> onSelectedMediaSourceChanged;
   final FocusNode? tvPlayFocusNode;
@@ -3102,6 +3109,7 @@ class _ActionButtons extends StatefulWidget {
 
   const _ActionButtons({
     required this.viewModel,
+    this.itemId,
     this.selectedMediaSourceId,
     required this.onSelectedMediaSourceChanged,
     this.tvPlayFocusNode,
@@ -4069,11 +4077,26 @@ class _ActionButtonsState extends State<_ActionButtons> {
   @override
   void didUpdateWidget(covariant _ActionButtons oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.selectedMediaSourceId != widget.selectedMediaSourceId) {
+    if (oldWidget.selectedMediaSourceId != widget.selectedMediaSourceId ||
+        oldWidget.itemId != widget.itemId) {
       _selectedAudioIndex = null;
       _selectedSubtitleIndex = null;
     }
     _maybeTriggerAutoPlay();
+  }
+
+  void _syncAudioSelectionFromActivePlayback() {
+    final activeAudioIndex = _activePlaybackAudioIndex();
+    if (activeAudioIndex != null) {
+      _selectedAudioIndex = activeAudioIndex;
+    }
+  }
+
+  void _syncSubtitleSelectionFromActivePlayback() {
+    final activeSubtitleIndex = _activePlaybackSubtitleIndex();
+    if (activeSubtitleIndex != null) {
+      _selectedSubtitleIndex = activeSubtitleIndex;
+    }
   }
 
   void _maybeTriggerAutoPlay() {
@@ -4858,6 +4881,8 @@ class _ActionButtonsState extends State<_ActionButtons> {
     }
 
     await routeFuture;
+    _syncAudioSelectionFromActivePlayback();
+    _syncSubtitleSelectionFromActivePlayback();
     if (reloadOnReturn) {
       viewModel.load();
     }
@@ -5304,12 +5329,7 @@ class _ActionButtonsState extends State<_ActionButtons> {
     BuildContext context,
     List<Map<String, dynamic>> streams,
   ) async {
-    if (_selectedAudioIndex == null) {
-      final activeAudioIndex = _activePlaybackAudioIndex();
-      if (activeAudioIndex != null) {
-        _selectedAudioIndex = activeAudioIndex;
-      }
-    }
+    _syncAudioSelectionFromActivePlayback();
     final effectiveAudioIndex = _effectiveAudioStreamIndex(streams);
     final currentIdx = effectiveAudioIndex != null
         ? streams.indexWhere((s) => s['Index'] == effectiveAudioIndex)
@@ -5642,12 +5662,7 @@ class _ActionButtonsState extends State<_ActionButtons> {
     List<Map<String, dynamic>> streams,
     List<Map<String, dynamic>> audioStreams,
   ) async {
-    if (_selectedSubtitleIndex == null) {
-      final activeSubtitleIndex = _activePlaybackSubtitleIndex();
-      if (activeSubtitleIndex != null) {
-        _selectedSubtitleIndex = activeSubtitleIndex;
-      }
-    }
+    _syncSubtitleSelectionFromActivePlayback();
     final canDownloadRemote = _canDownloadRemoteSubtitles(item);
     final effectiveSubtitleIndex = _effectiveSubtitleStreamIndex(streams);
     final currentIdx = effectiveSubtitleIndex != null
