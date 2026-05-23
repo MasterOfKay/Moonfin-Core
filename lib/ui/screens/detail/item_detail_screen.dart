@@ -8662,10 +8662,6 @@ class _ExpandableBiographyState extends State<_ExpandableBiography> {
               }
               return KeyEventResult.ignored;
             }
-            if (!_expanded && event.logicalKey == LogicalKeyboardKey.arrowUp) {
-              return KeyEventResult.handled;
-            }
-
             if (canToggle && isActivateKey(event)) {
               setState(() => _expanded = !_expanded);
               return KeyEventResult.handled;

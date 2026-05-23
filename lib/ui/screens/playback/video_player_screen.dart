@@ -135,7 +135,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
   bool _isPlayerMutationInFlight = false;
   Duration? _positionBeforeScreenLock;
   StreamSubscription<bool>? _screenLockSub;
-  StreamSubscription<bool>? _completedSub;
+  StreamSubscription<void>? _completedSub;
   bool _isRestoringPosition = false;
   DateTime? _suppressSeekPromptsUntil;
   bool _wasPlayingBeforeScreenLock = false;
@@ -713,6 +713,10 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
     _loadSegmentsForCurrentItem();
     unawaited(_syncAutoHdrSwitching());
     _positionSub = _state.positionStream.listen(_onPositionUpdate);
+    _completedSub = _manager.sessionEndedStream.listen((_) {
+      if (!mounted || _isStopping) return;
+      unawaited(_exitPlayback());
+    });
     _backendSub = _manager.backendChangedStream.listen((backend) {
       if (backend is Media3PlayerBackend) {
         unawaited(_syncMedia3ZoomMode());

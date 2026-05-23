@@ -79,6 +79,7 @@ class PlaybackManager {
   final _backendChangedController = StreamController<PlayerBackend>.broadcast();
   final _bringupStateController =
       StreamController<PlaybackBringupState>.broadcast();
+  final _sessionEndedController = StreamController<void>.broadcast();
   PlaybackBringupState _bringupState = const PlaybackBringupState.idle();
 
   PlayerBackend? get backend => _backend;
@@ -87,6 +88,7 @@ class PlaybackManager {
   PlaybackBringupState get bringupState => _bringupState;
   Stream<PlaybackBringupState> get bringupStateStream =>
       _bringupStateController.stream;
+  Stream<void> get sessionEndedStream => _sessionEndedController.stream;
   StreamResolutionResult? get currentResolution => _currentResolution;
   int? get audioStreamIndex => _audioStreamIndex;
   int? get subtitleStreamIndex => _subtitleStreamIndex;
@@ -425,7 +427,10 @@ class PlaybackManager {
       _isAutoNexting = true;
       _mediaSourceId = null;
       _stopAndReportCurrent(skipQueueChange: true)
-          .whenComplete(() => _isAutoNexting = false);
+          .whenComplete(() {
+            _isAutoNexting = false;
+            _notifySessionEnded();
+          });
       return;
     }
     // Ignore completed events that fire during initial load/seek.
@@ -459,6 +464,11 @@ class PlaybackManager {
     _pendingItemAudioStreamIndex = null;
     _pendingItemSubtitleStreamIndex = null;
     _pendingItemMediaSourceId = null;
+  }
+
+  void _notifySessionEnded() {
+    if (_sessionEndedController.isClosed) return;
+    _sessionEndedController.add(null);
   }
 
   void _applyPendingItemOverridesIfNeeded(String itemId) {
@@ -563,7 +573,11 @@ class PlaybackManager {
       final hadNext = queueService.next();
       if (hadNext) {
         final item = queueService.currentItem as String?;
-        if (item != null) await _onOfflineAutoNext?.call(item);
+        if (item != null) {
+          await _onOfflineAutoNext?.call(item);
+        }
+      } else {
+        _notifySessionEnded();
       }
       return;
     }
@@ -575,35 +589,39 @@ class PlaybackManager {
       return;
     }
 
-    await _tryAutoAdvanceToNextSeason();
+    final advancedToNextSeason = await _tryAutoAdvanceToNextSeason();
+    if (!advancedToNextSeason) {
+      _notifySessionEnded();
+    }
   }
 
-  Future<void> _tryAutoAdvanceToNextSeason() async {
+  Future<bool> _tryAutoAdvanceToNextSeason() async {
     final provider = _nextSeasonItemsProvider;
-    if (provider == null) return;
-    if (_isOfflinePlayback) return;
-    if (queueService.repeatMode != RepeatMode.none) return;
+    if (provider == null) return false;
+    if (_isOfflinePlayback) return false;
+    if (queueService.repeatMode != RepeatMode.none) return false;
 
     final completedItem = queueService.currentItem;
     final completedIndex = queueService.currentIndex;
     final queueSnapshot = queueService.items;
     if (completedItem == null || completedIndex < 0 || queueSnapshot.isEmpty) {
-      return;
+      return false;
     }
-    if (completedIndex != queueSnapshot.length - 1) return;
+    if (completedIndex != queueSnapshot.length - 1) return false;
 
     List<dynamic> nextSeasonItems;
     try {
       nextSeasonItems = await provider(completedItem, queueSnapshot, completedIndex);
     } catch (_) {
-      return;
+      return false;
     }
 
-    if (nextSeasonItems.isEmpty) return;
+    if (nextSeasonItems.isEmpty) return false;
 
     queueService.addItems(nextSeasonItems);
-    if (!queueService.next()) return;
+    if (!queueService.next()) return false;
     await _playCurrentItem();
+    return true;
   }
 
   Future<void> playItems(
@@ -1785,6 +1803,7 @@ class PlaybackManager {
     _disposeStreamSubs();
     _backendChangedController.close();
     _bringupStateController.close();
+    _sessionEndedController.close();
     for (final backend in _retainedBackends.toList()) {
       backend.dispose();
     }

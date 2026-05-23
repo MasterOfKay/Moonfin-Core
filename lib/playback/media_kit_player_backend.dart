@@ -298,6 +298,7 @@ class MediaKitPlayerBackend implements PlayerBackend {
         libassAndroidFontName: PlatformDetection.isAndroid ? 'Noto Sans' : null,
       ),
     );
+    unawaited(player.setPlaylistMode(PlaylistMode.none));
     final platform = player.platform;
     if (platform is NativePlayer) {
       _nativeSetProperty(platform, 'network-timeout', '120');

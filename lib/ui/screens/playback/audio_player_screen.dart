@@ -51,6 +51,7 @@ class _AudioPlayerScreenState extends State<AudioPlayerScreen> {
   final _subs = <StreamSubscription>[];
   final _tvOverlayFocus = FocusNode(debugLabel: 'AudioPlayerTvOverlay');
   final _queueScrollController = ScrollController();
+  bool _isExitingPlayback = false;
   bool _showQueue = false;
   bool _showLyrics = false;
   bool? _localFavorite;
@@ -89,6 +90,10 @@ class _AudioPlayerScreenState extends State<AudioPlayerScreen> {
         _syncTvQueueFocusIndex();
         _rebuild();
         _loadLyricsIfNeeded();
+      }),
+      _manager.sessionEndedStream.listen((_) {
+        if (!mounted || _isExitingPlayback) return;
+        unawaited(_exitPlayback());
       }),
     ]);
     if (PlatformDetection.useNativeVideoSurface) {
@@ -445,6 +450,17 @@ class _AudioPlayerScreenState extends State<AudioPlayerScreen> {
       await _mutations.setFavorite(item.id, isFavorite: newVal);
     } catch (_) {
       if (mounted) setState(() => _localFavorite = current);
+    }
+  }
+
+  Future<void> _exitPlayback() async {
+    if (_isExitingPlayback || !mounted) return;
+    _isExitingPlayback = true;
+    try {
+      await _manager.stop(userInitiated: false);
+    } catch (_) {}
+    if (mounted) {
+      Navigator.of(context).pop();
     }
   }
 
