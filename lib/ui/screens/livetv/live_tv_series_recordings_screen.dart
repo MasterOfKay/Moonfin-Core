@@ -165,12 +165,12 @@ class _LiveTvSeriesRecordingsScreenState
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(ctx),
+            onPressed: () => Navigator.of(ctx, rootNavigator: true).pop(),
             child: Text(l10n.close),
           ),
           TextButton(
             onPressed: () {
-              Navigator.pop(ctx);
+              Navigator.of(ctx, rootNavigator: true).pop();
               _cancelSeriesTimer(timer);
             },
             style: TextButton.styleFrom(foregroundColor: Colors.red),
@@ -197,11 +197,12 @@ class _LiveTvSeriesRecordingsScreenState
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
+            onPressed:
+                () => Navigator.of(ctx, rootNavigator: true).pop(false),
             child: Text(l10n.no),
           ),
           TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
+            onPressed: () => Navigator.of(ctx, rootNavigator: true).pop(true),
             style: TextButton.styleFrom(foregroundColor: Colors.red),
             child: Text(l10n.yesCancel),
           ),

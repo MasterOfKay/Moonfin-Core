@@ -1582,6 +1582,21 @@ class AppLocalizationsBg extends AppLocalizations {
   String get favoriteChannel => 'Любим канал';
 
   @override
+  String get record => 'Record';
+
+  @override
+  String get cancelRecordingAction => 'Cancel Recording';
+
+  @override
+  String get programSetToRecord => 'Program set to record';
+
+  @override
+  String get recordingCancelled => 'Recording cancelled';
+
+  @override
+  String get unableToCreateRecording => 'Unable to create recording';
+
+  @override
   String get watch => 'Гледай';
 
   @override

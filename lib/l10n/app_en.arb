@@ -2238,6 +2238,26 @@
   "@favoriteChannel": {
     "description": "Button label to add a channel to favorites"
   },
+  "record": "Record",
+  "@record": {
+    "description": "Button label to schedule a live TV recording"
+  },
+  "cancelRecordingAction": "Cancel Recording",
+  "@cancelRecordingAction": {
+    "description": "Button label to cancel a scheduled live TV recording"
+  },
+  "programSetToRecord": "Program set to record",
+  "@programSetToRecord": {
+    "description": "Snackbar confirmation after scheduling a live TV program recording"
+  },
+  "recordingCancelled": "Recording cancelled",
+  "@recordingCancelled": {
+    "description": "Snackbar confirmation after cancelling a live TV recording"
+  },
+  "unableToCreateRecording": "Unable to create recording",
+  "@unableToCreateRecording": {
+    "description": "Error when creating a live TV recording fails"
+  },
   "watch": "Watch",
   "@watch": {
     "description": "Button label to start watching a channel"

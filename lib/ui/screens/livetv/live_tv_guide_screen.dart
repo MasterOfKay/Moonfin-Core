@@ -610,13 +610,16 @@ class _LiveTvGuideScreenState extends State<LiveTvGuideScreen> {
   }
 
   void _showProgramDetails(GuideProgram program) {
+    final pageContext = context;
     final channel = _vm.channelForId(program.channelId);
     final isFavoriteChannel = channel?.isFavorite ?? false;
+    final hasTimer = program.hasTimer;
     final l10n = AppLocalizations.of(context);
+    var dialogActionInProgress = false;
 
     showFocusRestoringDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         backgroundColor: AppColorScheme.surface,
         title: Text(program.name, style: const TextStyle(color: Colors.white)),
         content: SingleChildScrollView(
@@ -662,14 +665,49 @@ class _LiveTvGuideScreenState extends State<LiveTvGuideScreen> {
         ),
         actions: [
           TextButton(
+            onPressed: () async {
+              if (dialogActionInProgress) return;
+              dialogActionInProgress = true;
+              try {
+                await _vm.toggleProgramRecording(program);
+                if (!pageContext.mounted) return;
+                Navigator.of(dialogContext).pop();
+                ScaffoldMessenger.of(pageContext).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      hasTimer
+                          ? l10n.recordingCancelled
+                          : l10n.programSetToRecord,
+                    ),
+                  ),
+                );
+              } catch (_) {
+                    dialogActionInProgress = false;
+                if (!pageContext.mounted) return;
+                ScaffoldMessenger.of(pageContext).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      hasTimer
+                          ? l10n.failedToCancelRecording
+                          : l10n.unableToCreateRecording,
+                    ),
+                  ),
+                );
+              }
+            },
+            child: Text(hasTimer ? l10n.cancelRecordingAction : l10n.record),
+          ),
+          TextButton(
             onPressed: channel == null
                 ? null
                 : () async {
+                    if (dialogActionInProgress) return;
+                    dialogActionInProgress = true;
                     try {
                       await _vm.toggleChannelFavorite(program.channelId);
-                      if (!context.mounted) return;
-                      Navigator.of(context).pop();
-                      ScaffoldMessenger.of(context).showSnackBar(
+                      if (!pageContext.mounted) return;
+                      Navigator.of(dialogContext).pop();
+                      ScaffoldMessenger.of(pageContext).showSnackBar(
                         SnackBar(
                           content: Text(
                             isFavoriteChannel
@@ -679,8 +717,9 @@ class _LiveTvGuideScreenState extends State<LiveTvGuideScreen> {
                         ),
                       );
                     } catch (_) {
-                      if (!context.mounted) return;
-                      ScaffoldMessenger.of(context).showSnackBar(
+                      dialogActionInProgress = false;
+                      if (!pageContext.mounted) return;
+                      ScaffoldMessenger.of(pageContext).showSnackBar(
                         SnackBar(
                           content: Text(l10n.failedToUpdateFavoriteChannel),
                         ),
@@ -693,13 +732,19 @@ class _LiveTvGuideScreenState extends State<LiveTvGuideScreen> {
           ),
           TextButton(
             onPressed: () {
-              Navigator.of(context).pop();
+              if (dialogActionInProgress) return;
+              dialogActionInProgress = true;
+              Navigator.of(dialogContext).pop();
               _watchChannel(program.channelId);
             },
             child: Text(l10n.watch),
           ),
           TextButton(
-            onPressed: () => Navigator.of(context).pop(),
+            onPressed: () {
+              if (dialogActionInProgress) return;
+              dialogActionInProgress = true;
+              Navigator.of(dialogContext).pop();
+            },
             child: Text(l10n.close),
           ),
         ],

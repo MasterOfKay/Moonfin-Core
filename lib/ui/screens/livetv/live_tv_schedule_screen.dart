@@ -128,11 +128,12 @@ class _LiveTvScheduleScreenState extends State<LiveTvScheduleScreen> {
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
+            onPressed:
+                () => Navigator.of(ctx, rootNavigator: true).pop(false),
             child: Text(l10n.no),
           ),
           TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
+            onPressed: () => Navigator.of(ctx, rootNavigator: true).pop(true),
             style: TextButton.styleFrom(foregroundColor: Colors.red),
             child: Text(l10n.yesCancel),
           ),

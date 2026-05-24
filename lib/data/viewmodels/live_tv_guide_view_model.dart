@@ -185,6 +185,19 @@ class LiveTvGuideViewModel extends ChangeNotifier {
     }
   }
 
+  Future<void> toggleProgramRecording(GuideProgram program) async {
+    if (program.hasTimer) {
+      final timerId = program.rawData['TimerId'] as String?;
+      if (timerId == null || timerId.isEmpty) {
+        throw StateError('TimerId missing for scheduled program ${program.id}');
+      }
+      await _client.liveTvApi.cancelTimer(timerId);
+    } else {
+      await _client.liveTvApi.createTimer(program.id);
+    }
+    await _reloadPrograms();
+  }
+
   Future<void> load({int? windowHours}) async {
     if (windowHours != null) _guideWindowHours = windowHours;
     _state = GuideState.loading;

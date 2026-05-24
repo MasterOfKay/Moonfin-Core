@@ -1561,6 +1561,21 @@ class AppLocalizationsHe extends AppLocalizations {
   String get favoriteChannel => 'ערוץ אהוב';
 
   @override
+  String get record => 'Record';
+
+  @override
+  String get cancelRecordingAction => 'Cancel Recording';
+
+  @override
+  String get programSetToRecord => 'Program set to record';
+
+  @override
+  String get recordingCancelled => 'Recording cancelled';
+
+  @override
+  String get unableToCreateRecording => 'Unable to create recording';
+
+  @override
   String get watch => 'לִצְפּוֹת';
 
   @override

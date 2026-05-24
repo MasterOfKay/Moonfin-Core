@@ -2897,6 +2897,36 @@ abstract class AppLocalizations {
   /// **'Favorite Channel'**
   String get favoriteChannel;
 
+  /// Button label to schedule a live TV recording
+  ///
+  /// In en, this message translates to:
+  /// **'Record'**
+  String get record;
+
+  /// Button label to cancel a scheduled live TV recording
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel Recording'**
+  String get cancelRecordingAction;
+
+  /// Snackbar confirmation after scheduling a live TV program recording
+  ///
+  /// In en, this message translates to:
+  /// **'Program set to record'**
+  String get programSetToRecord;
+
+  /// Snackbar confirmation after cancelling a live TV recording
+  ///
+  /// In en, this message translates to:
+  /// **'Recording cancelled'**
+  String get recordingCancelled;
+
+  /// Error when creating a live TV recording fails
+  ///
+  /// In en, this message translates to:
+  /// **'Unable to create recording'**
+  String get unableToCreateRecording;
+
   /// Button label to start watching a channel
   ///
   /// In en, this message translates to:

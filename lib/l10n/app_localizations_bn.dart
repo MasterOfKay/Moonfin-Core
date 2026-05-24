@@ -1573,6 +1573,21 @@ class AppLocalizationsBn extends AppLocalizations {
   String get favoriteChannel => 'প্রিয় চ্যানেল';
 
   @override
+  String get record => 'Record';
+
+  @override
+  String get cancelRecordingAction => 'Cancel Recording';
+
+  @override
+  String get programSetToRecord => 'Program set to record';
+
+  @override
+  String get recordingCancelled => 'Recording cancelled';
+
+  @override
+  String get unableToCreateRecording => 'Unable to create recording';
+
+  @override
   String get watch => 'ঘড়ি';
 
   @override

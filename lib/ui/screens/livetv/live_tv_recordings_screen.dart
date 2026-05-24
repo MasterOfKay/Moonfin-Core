@@ -266,9 +266,12 @@ class _LiveTvRecordingsScreenState extends State<LiveTvRecordingsScreen> {
           style: TextStyle(color: Colors.white.withValues(alpha: 0.8)),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(l10n.no)),
           TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
+            onPressed: () => Navigator.of(ctx, rootNavigator: true).pop(false),
+            child: Text(l10n.no),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx, rootNavigator: true).pop(true),
             style: TextButton.styleFrom(foregroundColor: Colors.red),
             child: Text(l10n.yesCancel),
           ),
@@ -300,9 +303,12 @@ class _LiveTvRecordingsScreenState extends State<LiveTvRecordingsScreen> {
           style: TextStyle(color: Colors.white.withValues(alpha: 0.8)),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(l10n.no)),
           TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
+            onPressed: () => Navigator.of(ctx, rootNavigator: true).pop(false),
+            child: Text(l10n.no),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx, rootNavigator: true).pop(true),
             style: TextButton.styleFrom(foregroundColor: Colors.red),
             child: Text(l10n.yesCancel),
           ),

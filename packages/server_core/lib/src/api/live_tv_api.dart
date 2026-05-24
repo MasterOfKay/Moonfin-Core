@@ -34,6 +34,8 @@ abstract class LiveTvApi {
 
   Future<Map<String, dynamic>> getSeriesTimers();
 
+  Future<void> createTimer(String programId);
+
   Future<void> cancelTimer(String timerId);
 
   Future<void> cancelSeriesTimer(String seriesTimerId);
