@@ -250,6 +250,8 @@ class _WebYouTubeTrailerState extends State<WebYouTubeTrailer> {
         },
       );
       await (controller as dynamic).init() as Future<void>;
+      _autoplayWatchArmed = true;
+      _restartAutoplayTimer();
 
       if (!mounted) {
         return;
@@ -261,7 +263,7 @@ class _WebYouTubeTrailerState extends State<WebYouTubeTrailer> {
   }
 
   void _onYoutubeValue(YoutubePlayerValue value) {
-    if (!_autoplayWatchArmed && value.playerState != PlayerState.unknown) {
+    if (!_autoplayWatchArmed) {
       _autoplayWatchArmed = true;
       _restartAutoplayTimer();
     }

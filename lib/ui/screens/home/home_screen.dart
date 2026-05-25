@@ -717,7 +717,10 @@ class _ContentRowsState extends State<_ContentRows>
   }
 
   void _onMainPlaybackChanged(bool isPlaying) {
-    if (isPlaying && _previewUsingMedia3 && _activePreviewKey != null) {
+    if (isPlaying &&
+        _previewUsingMedia3 &&
+        _activePreviewKey != null &&
+        _isHomeRouteActive()) {
       return;
     }
     if (_mainPlaybackActive == isPlaying) {
@@ -834,7 +837,7 @@ class _ContentRowsState extends State<_ContentRows>
 
     _mainPlaybackActive = _playbackManager.state.isPlaying;
 
-    if (!path.startsWith(Destinations.home)) {
+    if (!_isHomeRouteActive()) {
       _finishSharedPreview(releaseResources: true);
       return;
     }
@@ -2302,7 +2305,10 @@ class _ContentRowsState extends State<_ContentRows>
                     child: MediaBar(
                       viewModel: widget.mediaBarViewModel,
                       prefs: prefs,
-                      externallyPaused: carouselPaused || !_mediaBarVisible,
+                      externallyPaused:
+                          carouselPaused ||
+                          !_mediaBarVisible ||
+                          _activePreviewKey != null,
                       height: mediaBarHeight,
                       onNavigateDown: _moveFocusFromMediaBarToRows,
                       onNavigateUp: _navigateFromMediaBarToNavbar,

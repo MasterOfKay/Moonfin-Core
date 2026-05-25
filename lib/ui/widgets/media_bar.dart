@@ -190,7 +190,10 @@ class _MediaBarState extends State<MediaBar>
   }
 
   void _onMainPlaybackChanged(bool isPlaying) {
-    if (isPlaying && _trailerUsingMedia3 && _activeTrailerItemId != null) {
+    if (isPlaying &&
+        _trailerUsingMedia3 &&
+        _activeTrailerItemId != null &&
+        _isHomeRouteCurrent()) {
       return;
     }
     if (_mainPlaybackActive == isPlaying) {
@@ -400,8 +403,7 @@ class _MediaBarState extends State<MediaBar>
   }
 
   void _onRouteChanged() {
-    final path = appRouter.routerDelegate.currentConfiguration.uri.path;
-    final isHome = _isHomePath(path);
+    final isHome = _isHomeRouteCurrent();
     if (_isHomeRouteActive == isHome) return;
 
     _isHomeRouteActive = isHome;
@@ -965,12 +967,15 @@ class _MediaBarState extends State<MediaBar>
   }
 
   bool _supportsEmbeddedYouTubePreview() {
+    if (PlatformDetection.isAndroid && PlatformDetection.isTV) {
+      return false;
+    }
+
     return _embeddedYouTubeAvailable &&
         (PlatformDetection.isWeb ||
             PlatformDetection.isAndroid ||
             PlatformDetection.isIOS ||
-            PlatformDetection.isMacOS ||
-            PlatformDetection.isTV);
+            PlatformDetection.isMacOS);
   }
 
   void _handleEmbeddedYouTubeUnavailable() {
@@ -1018,7 +1023,7 @@ class _MediaBarState extends State<MediaBar>
     if (!mounted || _activeYouTubeVideoId == null) {
       return;
     }
-    _cancelTrailerPreview();
+    _handleEmbeddedYouTubeUnavailable();
   }
 
   String? _firstItemId(List<Map<String, dynamic>> items) {
