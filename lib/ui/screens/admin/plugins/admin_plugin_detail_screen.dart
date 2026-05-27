@@ -12,8 +12,10 @@ import 'plugin_web_settings_screen.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../../util/platform_detection.dart';
 
-final _packageInfoProvider =
-    FutureProvider.family<PackageInfo?, String>((ref, pluginId) async {
+final _packageInfoProvider = FutureProvider.family<PackageInfo?, String>((
+  ref,
+  pluginId,
+) async {
   final client = GetIt.instance<MediaServerClient>();
   try {
     final packages = await client.adminPluginsApi.getAvailablePackages();
@@ -49,30 +51,6 @@ class _AdminPluginDetailScreenState
     return null;
   }
 
-  Future<bool> _confirmExperimentalHtmlSettings() async {
-    final accepted = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(AppLocalizations.of(context).adminPluginDetailExperimental),
-        content: Text(
-          AppLocalizations.of(context).adminPluginDetailExperimentalContent,
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: Text(AppLocalizations.of(context).cancel),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: Text(AppLocalizations.of(context).continueAction),
-          ),
-        ],
-      ),
-    );
-
-    return accepted == true;
-  }
-
   Future<void> _togglePlugin(PluginInfo plugin) async {
     setState(() => _toggling = true);
     try {
@@ -85,12 +63,19 @@ class _AdminPluginDetailScreenState
     } catch (e) {
       if (mounted) {
         final message = switch (e) {
-          DioException(response: final response) when response?.statusCode == 404 =>
+          DioException(response: final response)
+              when response?.statusCode == 404 =>
             AppLocalizations.of(context).adminPluginDetailToggle404,
-          DioException() => AppLocalizations.of(context).adminPluginDetailToggleDioError,
-          _ => AppLocalizations.of(context).adminPluginToggleFailed(e.toString()),
+          DioException() => AppLocalizations.of(
+            context,
+          ).adminPluginDetailToggleDioError,
+          _ => AppLocalizations.of(
+            context,
+          ).adminPluginToggleFailed(e.toString()),
         };
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(message)));
       }
     } finally {
       if (mounted) setState(() => _toggling = false);
@@ -102,7 +87,9 @@ class _AdminPluginDetailScreenState
       context: context,
       builder: (context) => AlertDialog(
         title: Text(AppLocalizations.of(context).adminUninstallPlugin),
-        content: Text(AppLocalizations.of(context).adminUninstallPluginConfirm(plugin.name)),
+        content: Text(
+          AppLocalizations.of(context).adminUninstallPluginConfirm(plugin.name),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -124,14 +111,27 @@ class _AdminPluginDetailScreenState
       await _api.uninstallPlugin(plugin.id, plugin.version);
       ref.invalidate(adminInstalledPluginsProvider);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
             content: Text(
-                AppLocalizations.of(context).adminPluginRemoveAfterRestart(plugin.name))));
+              AppLocalizations.of(
+                context,
+              ).adminPluginRemoveAfterRestart(plugin.name),
+            ),
+          ),
+        );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(AppLocalizations.of(context).adminPluginUninstallFailed(e.toString()))));
+          SnackBar(
+            content: Text(
+              AppLocalizations.of(
+                context,
+              ).adminPluginUninstallFailed(e.toString()),
+            ),
+          ),
+        );
       }
     }
   }
@@ -146,8 +146,9 @@ class _AdminPluginDetailScreenState
         package.name,
         assemblyGuid: package.id,
         version: version.version,
-        repositoryUrl:
-            version.repositoryUrl.isNotEmpty ? version.repositoryUrl : null,
+        repositoryUrl: version.repositoryUrl.isNotEmpty
+            ? version.repositoryUrl
+            : null,
       );
 
       ref.invalidate(adminInstalledPluginsProvider);
@@ -157,7 +158,9 @@ class _AdminPluginDetailScreenState
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              AppLocalizations.of(context).adminPluginUpdating(plugin.name, version.version),
+              AppLocalizations.of(
+                context,
+              ).adminPluginUpdating(plugin.name, version.version),
             ),
           ),
         );
@@ -165,7 +168,13 @@ class _AdminPluginDetailScreenState
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(AppLocalizations.of(context).adminPluginUpdateFailed(e.toString()))),
+          SnackBar(
+            content: Text(
+              AppLocalizations.of(
+                context,
+              ).adminPluginUpdateFailed(e.toString()),
+            ),
+          ),
         );
       }
     }
@@ -237,11 +246,6 @@ class _AdminPluginDetailScreenState
   }
 
   Future<void> _openHtmlSettings(PluginInfo plugin) async {
-    final proceed = await _confirmExperimentalHtmlSettings();
-    if (!proceed || !mounted) {
-      return;
-    }
-
     final client = GetIt.instance<MediaServerClient>();
     final token = client.accessToken;
     if (token == null || token.isEmpty) {
@@ -250,12 +254,32 @@ class _AdminPluginDetailScreenState
       }
 
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(AppLocalizations.of(context).adminMissingAuthToken)),
+        SnackBar(
+          content: Text(AppLocalizations.of(context).adminMissingAuthToken),
+        ),
       );
       return;
     }
 
-    final configPageName = await _resolveConfigurationPageName(plugin) ?? plugin.name;
+    PublicSystemInfo? systemInfo;
+    try {
+      final publicInfoJson = await client.systemApi.getPublicSystemInfo();
+      systemInfo = PublicSystemInfo.fromJson(publicInfoJson);
+    } catch (_) {
+      systemInfo = null;
+    }
+
+    final parsedBaseUri = Uri.tryParse(client.baseUrl);
+    final fallbackServerLabel = parsedBaseUri?.host ?? 'Jellyfin';
+    final serverId = (systemInfo?.id.trim().isNotEmpty ?? false)
+        ? systemInfo!.id.trim()
+        : fallbackServerLabel;
+    final serverName = (systemInfo?.serverName.trim().isNotEmpty ?? false)
+        ? systemInfo!.serverName.trim()
+        : fallbackServerLabel;
+
+    final configPageName =
+        await _resolveConfigurationPageName(plugin) ?? plugin.name;
     if (!mounted) {
       return;
     }
@@ -268,7 +292,11 @@ class _AdminPluginDetailScreenState
           serverBaseUrl: client.baseUrl,
           accessToken: token,
           userId: client.userId,
-          title: AppLocalizations.of(context).adminPluginDetailSettingsTitle(plugin.name),
+          serverId: serverId,
+          serverName: serverName,
+          title: AppLocalizations.of(
+            context,
+          ).adminPluginDetailSettingsTitle(plugin.name),
         ),
       ),
     );
@@ -285,7 +313,11 @@ class _AdminPluginDetailScreenState
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(AppLocalizations.of(context).adminPluginLoadFailed(error.toString())),
+            Text(
+              AppLocalizations.of(
+                context,
+              ).adminPluginLoadFailed(error.toString()),
+            ),
             const SizedBox(height: 8),
             ElevatedButton(
               onPressed: () => ref.invalidate(adminInstalledPluginsProvider),
@@ -297,7 +329,9 @@ class _AdminPluginDetailScreenState
       data: (plugins) {
         final plugin = _findPlugin(plugins);
         if (plugin == null) {
-          return Center(child: Text(AppLocalizations.of(context).adminPluginNotFound));
+          return Center(
+            child: Text(AppLocalizations.of(context).adminPluginNotFound),
+          );
         }
         final packageInfo = packageInfoAsync.valueOrNull;
         return _buildContent(context, plugin, packageInfo);
@@ -306,12 +340,15 @@ class _AdminPluginDetailScreenState
   }
 
   Widget _buildContent(
-      BuildContext context, PluginInfo plugin, PackageInfo? packageInfo) {
+    BuildContext context,
+    PluginInfo plugin,
+    PackageInfo? packageInfo,
+  ) {
     final theme = Theme.of(context);
     final isWide = MediaQuery.sizeOf(context).width >= 800;
     final latestUpdateVersion = packageInfo == null || plugin.version.isEmpty
-      ? null
-      : latestVersionInfoAfter(plugin.version, packageInfo.versions);
+        ? null
+        : latestVersionInfoAfter(plugin.version, packageInfo.versions);
 
     final statusBanner = _buildStatusBanner(context, plugin);
 
@@ -319,7 +356,10 @@ class _AdminPluginDetailScreenState
       return ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          if (statusBanner != null) ...[statusBanner, const SizedBox(height: 12)],
+          if (statusBanner != null) ...[
+            statusBanner,
+            const SizedBox(height: 12),
+          ],
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -335,7 +375,8 @@ class _AdminPluginDetailScreenState
                       Text(
                         packageInfo?.description ?? plugin.description,
                         style: theme.textTheme.bodyLarge?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant),
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
                       ),
                     ],
                     if (packageInfo != null &&
@@ -366,23 +407,20 @@ class _AdminPluginDetailScreenState
                         toggling: _toggling,
                         latestUpdateVersion: latestUpdateVersion?.version,
                         onToggle: () => _togglePlugin(plugin),
-                        onInstallUpdate: latestUpdateVersion == null ||
-                                packageInfo == null
+                        onInstallUpdate:
+                            latestUpdateVersion == null || packageInfo == null
                             ? null
                             : () => _installPluginUpdate(
-                                  plugin,
-                                  packageInfo,
-                                  latestUpdateVersion,
-                                ),
+                                plugin,
+                                packageInfo,
+                                latestUpdateVersion,
+                              ),
                         onUninstall: () => _uninstallPlugin(plugin),
                         onOpenHtmlSettings: () => _openHtmlSettings(plugin),
                       ),
                       const SizedBox(height: 16),
                     ],
-                    _DetailsTable(
-                      plugin: plugin,
-                      packageInfo: packageInfo,
-                    ),
+                    _DetailsTable(plugin: plugin, packageInfo: packageInfo),
                   ],
                 ),
               ),
@@ -412,9 +450,14 @@ class _AdminPluginDetailScreenState
                 children: [
                   Text(plugin.name, style: theme.textTheme.headlineSmall),
                   const SizedBox(height: 4),
-                  Text(AppLocalizations.of(context).adminPluginVersion(plugin.version),
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant)),
+                  Text(
+                    AppLocalizations.of(
+                      context,
+                    ).adminPluginVersion(plugin.version),
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -427,7 +470,8 @@ class _AdminPluginDetailScreenState
           Text(
             packageInfo?.description ?? plugin.description,
             style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant),
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
           ),
         ],
 
@@ -441,10 +485,10 @@ class _AdminPluginDetailScreenState
             onInstallUpdate: latestUpdateVersion == null || packageInfo == null
                 ? null
                 : () => _installPluginUpdate(
-                      plugin,
-                      packageInfo,
-                      latestUpdateVersion,
-                    ),
+                    plugin,
+                    packageInfo,
+                    latestUpdateVersion,
+                  ),
             onUninstall: () => _uninstallPlugin(plugin),
             onOpenHtmlSettings: () => _openHtmlSettings(plugin),
           ),
@@ -498,8 +542,10 @@ class _AdminPluginDetailScreenState
             Icon(Icons.info_outline, size: 20, color: color),
             const SizedBox(width: 12),
             Expanded(
-              child: Text(message,
-                  style: theme.textTheme.bodyMedium?.copyWith(color: color)),
+              child: Text(
+                message,
+                style: theme.textTheme.bodyMedium?.copyWith(color: color),
+              ),
             ),
           ],
         ),
@@ -512,10 +558,7 @@ class _PluginImage extends StatelessWidget {
   final String? imageUrl;
   final double size;
 
-  const _PluginImage({
-    this.imageUrl,
-    this.size = 120,
-  });
+  const _PluginImage({this.imageUrl, this.size = 120});
 
   @override
   Widget build(BuildContext context) {
@@ -541,8 +584,11 @@ class _PluginImage extends StatelessWidget {
         color: theme.colorScheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(12),
       ),
-      child: Icon(Icons.extension, size: size * 0.45,
-          color: theme.colorScheme.onSurfaceVariant),
+      child: Icon(
+        Icons.extension,
+        size: size * 0.45,
+        color: theme.colorScheme.onSurfaceVariant,
+      ),
     );
   }
 }
@@ -579,7 +625,9 @@ class _ActionsSection extends StatelessWidget {
           children: [
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
-              title: Text(AppLocalizations.of(context).adminPluginDetailEnablePlugin),
+              title: Text(
+                AppLocalizations.of(context).adminPluginDetailEnablePlugin,
+              ),
               value: plugin.status != PluginStatus.disabled,
               onChanged: (isRestartPending || toggling)
                   ? null
@@ -589,33 +637,42 @@ class _ActionsSection extends StatelessWidget {
             if (!PlatformDetection.isTV && onInstallUpdate != null)
               ListTile(
                 contentPadding: EdgeInsets.zero,
-                leading: Icon(
-                  Icons.download,
-                  color: theme.colorScheme.primary,
-                ),
+                leading: Icon(Icons.download, color: theme.colorScheme.primary),
                 title: Text(
                   latestUpdateVersion != null
-                      ? AppLocalizations.of(context).adminPluginsInstallUpdateVersioned(latestUpdateVersion!)
+                      ? AppLocalizations.of(
+                          context,
+                        ).adminPluginsInstallUpdateVersioned(
+                          latestUpdateVersion!,
+                        )
                       : AppLocalizations.of(context).adminPluginsInstallUpdate,
                 ),
                 onTap: onInstallUpdate,
               ),
-            if (!PlatformDetection.isTV && onInstallUpdate != null) const Divider(),
+            if (!PlatformDetection.isTV && onInstallUpdate != null)
+              const Divider(),
             ListTile(
               contentPadding: EdgeInsets.zero,
               leading: Icon(Icons.web, color: theme.colorScheme.primary),
               title: Text(AppLocalizations.of(context).settings),
-              subtitle: Text(AppLocalizations.of(context).adminPluginSettingsPage),
+              subtitle: Text(
+                AppLocalizations.of(context).adminPluginSettingsPage,
+              ),
               onTap: onOpenHtmlSettings,
             ),
             const Divider(),
             ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: Icon(Icons.delete_outline, color: theme.colorScheme.error),
-                title: Text(AppLocalizations.of(context).uninstall,
-                    style: TextStyle(color: theme.colorScheme.error)),
-                onTap: onUninstall,
+              contentPadding: EdgeInsets.zero,
+              leading: Icon(
+                Icons.delete_outline,
+                color: theme.colorScheme.error,
               ),
+              title: Text(
+                AppLocalizations.of(context).uninstall,
+                style: TextStyle(color: theme.colorScheme.error),
+              ),
+              onTap: onUninstall,
+            ),
           ],
         ),
       ),
@@ -627,10 +684,7 @@ class _DetailsTable extends StatelessWidget {
   final PluginInfo plugin;
   final PackageInfo? packageInfo;
 
-  const _DetailsTable({
-    required this.plugin,
-    this.packageInfo,
-  });
+  const _DetailsTable({required this.plugin, this.packageInfo});
 
   @override
   Widget build(BuildContext context) {
@@ -646,11 +700,22 @@ class _DetailsTable extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(AppLocalizations.of(context).adminPluginDetailDetails, style: theme.textTheme.titleMedium),
+            Text(
+              AppLocalizations.of(context).adminPluginDetailDetails,
+              style: theme.textTheme.titleMedium,
+            ),
             const SizedBox(height: 12),
-            _row(context, AppLocalizations.of(context).status, plugin.status.label),
+            _row(
+              context,
+              AppLocalizations.of(context).status,
+              plugin.status.label,
+            ),
             _row(context, 'Version', plugin.version),
-            _row(context, AppLocalizations.of(context).adminPluginDetailDeveloper, developer ?? AppLocalizations.of(context).unknown),
+            _row(
+              context,
+              AppLocalizations.of(context).adminPluginDetailDeveloper,
+              developer ?? AppLocalizations.of(context).unknown,
+            ),
             _row(
               context,
               AppLocalizations.of(context).adminPluginDetailRepository,
@@ -673,9 +738,12 @@ class _DetailsTable extends StatelessWidget {
         children: [
           SizedBox(
             width: 100,
-            child: Text(label,
-                style: theme.textTheme.bodyMedium
-                    ?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+            child: Text(
+              label,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
           ),
           Expanded(child: Text(value, style: theme.textTheme.bodyMedium)),
         ],
@@ -702,7 +770,10 @@ class _RevisionHistory extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(AppLocalizations.of(context).adminRevisionHistory, style: theme.textTheme.titleMedium),
+            Text(
+              AppLocalizations.of(context).adminRevisionHistory,
+              style: theme.textTheme.titleMedium,
+            ),
             const SizedBox(height: 8),
             ...versions.take(10).map((v) {
               final isInstalled = v.version == installedVersion;
@@ -710,15 +781,20 @@ class _RevisionHistory extends StatelessWidget {
                 tilePadding: EdgeInsets.zero,
                 title: Row(
                   children: [
-                    Text(v.version,
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                            fontWeight: isInstalled
-                                ? FontWeight.bold
-                                : FontWeight.normal)),
+                    Text(
+                      v.version,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        fontWeight: isInstalled
+                            ? FontWeight.bold
+                            : FontWeight.normal,
+                      ),
+                    ),
                     if (isInstalled) ...[
                       const SizedBox(width: 8),
                       Chip(
-                        label: Text(AppLocalizations.of(context).adminPluginsInstalled),
+                        label: Text(
+                          AppLocalizations.of(context).adminPluginsInstalled,
+                        ),
                         visualDensity: VisualDensity.compact,
                         labelStyle: theme.textTheme.labelSmall,
                         padding: EdgeInsets.zero,
@@ -727,24 +803,30 @@ class _RevisionHistory extends StatelessWidget {
                   ],
                 ),
                 subtitle: v.timestamp != null
-                    ? Text(v.timestamp!,
-                        style: theme.textTheme.bodySmall)
+                    ? Text(v.timestamp!, style: theme.textTheme.bodySmall)
                     : null,
                 children: [
                   if (v.changelog != null && v.changelog!.isNotEmpty)
                     Padding(
                       padding: const EdgeInsets.only(
-                          left: 16, right: 16, bottom: 12),
+                        left: 16,
+                        right: 16,
+                        bottom: 12,
+                      ),
                       child: Align(
                         alignment: Alignment.centerLeft,
-                        child: Text(v.changelog!,
-                            style: theme.textTheme.bodySmall),
+                        child: Text(
+                          v.changelog!,
+                          style: theme.textTheme.bodySmall,
+                        ),
                       ),
                     )
                   else
                     Padding(
                       padding: const EdgeInsets.only(left: 16, bottom: 12),
-                      child: Text(AppLocalizations.of(context).adminNoChangelog),
+                      child: Text(
+                        AppLocalizations.of(context).adminNoChangelog,
+                      ),
                     ),
                 ],
               );
