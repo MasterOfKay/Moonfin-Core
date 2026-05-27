@@ -569,6 +569,7 @@ class _ContentRowsState extends State<_ContentRows>
   bool _holdMediaBarWhileSidebarFocused = false;
   bool get _isSidebarFocus => LeftSidebar.isFocusedNotifier.value;
   bool _wasSidebarFocused = false;
+  VoidCallback? _previousFocusContentFromNavbarCallback;
   FocusNode? _lastGlobalPrimaryFocus;
   String? _activePreviewKey;
   String? _mobilePressedV2Key;
@@ -735,6 +736,10 @@ class _ContentRowsState extends State<_ContentRows>
     SettingsPanel.isOpenNotifier.addListener(_onSettingsPanelOpenChanged);
     _lastMedia3PreviewPreference = _useMedia3InlinePreview();
     widget.prefs.addListener(_onPreviewPrefsChanged);
+    _previousFocusContentFromNavbarCallback =
+      NavigationLayout.focusContentFromNavbarNotifier.value;
+    NavigationLayout.focusContentFromNavbarNotifier.value =
+      _focusContentFromNavbar;
     _mainPlaybackActive = _playbackManager.state.isPlaying;
     _mainPlaybackSub = _playbackManager.state.playingStream.listen(
       _onMainPlaybackChanged,
@@ -755,6 +760,13 @@ class _ContentRowsState extends State<_ContentRows>
     SettingsPanel.isOpenNotifier.removeListener(_onSettingsPanelOpenChanged);
     _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
+    if (identical(
+      NavigationLayout.focusContentFromNavbarNotifier.value,
+      _focusContentFromNavbar,
+    )) {
+      NavigationLayout.focusContentFromNavbarNotifier.value =
+          _previousFocusContentFromNavbarCallback;
+    }
     _scrollIdleTimer?.cancel();
     _mediaBarFocusNode.dispose();
     _mainPlaybackSub?.cancel();
@@ -1426,6 +1438,33 @@ class _ContentRowsState extends State<_ContentRows>
       ));
     }
     _requestFocusToNavbar();
+  }
+
+  void _focusContentFromNavbar() {
+    if (!_mayRestoreHomeFocus()) return;
+
+    if (_isMediaBarIncluded()) {
+      if (mounted && !_mediaBarVisible) {
+        setState(() => _mediaBarVisible = true);
+      }
+      _requestMediaBarFocus(force: true);
+      return;
+    }
+
+    final activeRow = _activeFocusedRowIndex;
+    if (activeRow != null && _requestRowFocusFromMemory(activeRow)) {
+      return;
+    }
+
+    final rows = widget.viewModel.rows;
+    for (var rowIndex = 0; rowIndex < rows.length; rowIndex++) {
+      if (!_rowHasFocusableItems(rows[rowIndex])) continue;
+      if (_requestRowFocusFromMemory(rowIndex, preferredIndex: 0)) {
+        return;
+      }
+    }
+
+    _ensureInitialHomeFocus(rows);
   }
 
   void _requestFocusToNavbar({int attempt = 0}) {

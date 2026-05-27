@@ -20,6 +20,10 @@ class NavigationLayout extends StatefulWidget {
   );
 
   static final focusNavbarNotifier = ValueNotifier<VoidCallback?>(null);
+  static final focusNavbarAvatarNotifier = ValueNotifier<VoidCallback?>(null);
+  static final focusContentFromNavbarNotifier = ValueNotifier<VoidCallback?>(
+    null,
+  );
 
   const NavigationLayout({
     super.key,
@@ -86,9 +90,15 @@ class _NavigationLayoutState extends State<NavigationLayout> with WidgetsBinding
 
   Widget _buildToolbar() {
     final translateWithScroll = PlatformDetection.isTV;
+    final content = Focus(
+      focusNode: _contentFocusNode,
+      skipTraversal: true,
+      child: widget.child,
+    );
     final toolbar = TopToolbar(
       activeRoute: widget.activeRoute,
       showBackButton: widget.showBackButton,
+      contentFocusNode: _contentFocusNode,
     );
     final maxTranslate = TopToolbar.heightFor(context);
     final body = translateWithScroll
@@ -101,9 +111,9 @@ class _NavigationLayoutState extends State<NavigationLayout> with WidgetsBinding
               }
               return false;
             },
-            child: widget.child,
+            child: content,
           )
-        : widget.child;
+        : content;
     return Column(
       children: [
         Expanded(

@@ -390,17 +390,17 @@ class AppLocalizationsNl extends AppLocalizations {
 
   @override
   String minutesAgo(int count) {
-    return '${count}m geleden';
+    return '${count}m ago';
   }
 
   @override
   String hoursAgo(int count) {
-    return '${count}h geleden';
+    return '${count}h ago';
   }
 
   @override
   String daysAgo(int count) {
-    return '${count}d geleden';
+    return '${count}d ago';
   }
 
   @override
@@ -3654,7 +3654,7 @@ class AppLocalizationsNl extends AppLocalizations {
   String get time => 'Tijd';
 
   @override
-  String get trickplay => 'Trickplay';
+  String get trickplay => 'Trucspel';
 
   @override
   String get uninstall => 'Verwijderen';
@@ -3705,7 +3705,7 @@ class AppLocalizationsNl extends AppLocalizations {
   String get adminDrawerStreaming => 'Streamen';
 
   @override
-  String get adminDrawerTrickplay => 'Trickplay';
+  String get adminDrawerTrickplay => 'Trucspel';
 
   @override
   String get adminDrawerDevices => 'Apparaten';
@@ -5310,17 +5310,17 @@ class AppLocalizationsNl extends AppLocalizations {
 
   @override
   String adminLogsMinutesAgo(int minutes) {
-    return '${minutes}m ago';
+    return '${minutes}m geleden';
   }
 
   @override
   String adminLogsHoursAgo(int hours) {
-    return '${hours}h ago';
+    return '${hours}h geleden';
   }
 
   @override
   String adminLogsDaysAgo(int days) {
-    return '${days}d ago';
+    return '${days}d geleden';
   }
 
   @override
@@ -6615,7 +6615,7 @@ class AppLocalizationsNl extends AppLocalizations {
       'Kan het gedownloade bestand niet verwijderen';
 
   @override
-  String get shuffleBy => 'Schudden door';
+  String get shuffleBy => 'Willekeurig door';
 
   @override
   String get shuffleSelectLibrary => 'Selecteer Bibliotheek';

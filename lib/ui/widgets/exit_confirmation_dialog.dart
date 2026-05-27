@@ -4,6 +4,7 @@ import 'package:moonfin_design/moonfin_design.dart';
 import '../../l10n/app_localizations.dart';
 import '../../util/app_exit.dart';
 import '../../util/focus/key_event_utils.dart';
+import 'navigation_layout.dart';
 import 'overlay_sheet.dart';
 
 Future<void> showExitConfirmationDialog(BuildContext context) async {
@@ -31,6 +32,15 @@ Future<void> showExitConfirmationDialog(BuildContext context) async {
     );
     if (result == true) {
       await AppExit.closeApp();
+    } else {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        final focusAvatar = NavigationLayout.focusNavbarAvatarNotifier.value;
+        if (focusAvatar != null) {
+          focusAvatar();
+          return;
+        }
+        NavigationLayout.focusNavbarNotifier.value?.call();
+      });
     }
   } finally {
     cancelFocus.dispose();

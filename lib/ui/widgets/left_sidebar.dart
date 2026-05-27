@@ -69,7 +69,9 @@ class _LeftSidebarState extends State<LeftSidebar> {
   final _settingsFocusNode = FocusNode(debugLabel: 'LeftSidebarSettings');
   final _profileFocusNode = FocusNode(debugLabel: 'LeftSidebarProfile');
   late final VoidCallback _focusNavbarCallback;
+  late final VoidCallback _focusAvatarCallback;
   VoidCallback? _previousFocusNavbarCallback;
+  VoidCallback? _previousFocusAvatarCallback;
   final _scrollController = ScrollController();
 
   List<AggregatedLibrary> _libraries = [];
@@ -100,8 +102,19 @@ class _LeftSidebarState extends State<LeftSidebar> {
         _homeFocusNode.requestFocus();
       }
     };
+    _focusAvatarCallback = () {
+      if (!mounted) return;
+      if (PlatformDetection.isTV) {
+        _profileFocusNode.requestFocus();
+      } else if (PlatformDetection.isDesktop) {
+        _homeFocusNode.requestFocus();
+      }
+    };
     _previousFocusNavbarCallback = NavigationLayout.focusNavbarNotifier.value;
+    _previousFocusAvatarCallback =
+        NavigationLayout.focusNavbarAvatarNotifier.value;
     NavigationLayout.focusNavbarNotifier.value = _focusNavbarCallback;
+    NavigationLayout.focusNavbarAvatarNotifier.value = _focusAvatarCallback;
     _updateClock();
     _clockTimer = Timer.periodic(
       const Duration(seconds: 30),
@@ -131,6 +144,13 @@ class _LeftSidebarState extends State<LeftSidebar> {
       _focusNavbarCallback,
     )) {
       NavigationLayout.focusNavbarNotifier.value = _previousFocusNavbarCallback;
+    }
+    if (identical(
+      NavigationLayout.focusNavbarAvatarNotifier.value,
+      _focusAvatarCallback,
+    )) {
+      NavigationLayout.focusNavbarAvatarNotifier.value =
+          _previousFocusAvatarCallback;
     }
     FocusManager.instance.removeListener(_trackPreviousFocus);
     if (PlatformDetection.isTV || PlatformDetection.isDesktop) {

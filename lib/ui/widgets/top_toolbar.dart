@@ -47,8 +47,14 @@ const _kButtonSpacingTV = 2.0;
 class TopToolbar extends StatefulWidget {
   final String? activeRoute;
   final bool showBackButton;
+  final FocusNode? contentFocusNode;
 
-  const TopToolbar({super.key, this.activeRoute, this.showBackButton = false});
+  const TopToolbar({
+    super.key,
+    this.activeRoute,
+    this.showBackButton = false,
+    this.contentFocusNode,
+  });
 
   /// Total laid-out height of the toolbar for the current platform.
   static double heightFor(BuildContext context) {
@@ -78,7 +84,9 @@ class _TopToolbarState extends State<TopToolbar> {
     skipTraversal: true,
   );
   late final VoidCallback _focusNavbarCallback;
+  late final VoidCallback _focusAvatarCallback;
   VoidCallback? _previousFocusNavbarCallback;
+  VoidCallback? _previousFocusAvatarCallback;
   FocusNode? _previousFocus;
   List<AggregatedLibrary> _libraries = [];
   Timer? _clockTimer;
@@ -91,8 +99,12 @@ class _TopToolbarState extends State<TopToolbar> {
     super.initState();
     _currentTime = ValueNotifier<String>('');
     _focusNavbarCallback = () => _homeFocus.requestFocus();
+    _focusAvatarCallback = () => _avatarFocus.requestFocus();
     _previousFocusNavbarCallback = NavigationLayout.focusNavbarNotifier.value;
+    _previousFocusAvatarCallback =
+      NavigationLayout.focusNavbarAvatarNotifier.value;
     NavigationLayout.focusNavbarNotifier.value = _focusNavbarCallback;
+    NavigationLayout.focusNavbarAvatarNotifier.value = _focusAvatarCallback;
     _avatarFocus.addListener(_onAvatarFocusChanged);
     FocusManager.instance.addListener(_trackPreviousFocus);
     _updateClock();
@@ -114,6 +126,13 @@ class _TopToolbarState extends State<TopToolbar> {
       _focusNavbarCallback,
     )) {
       NavigationLayout.focusNavbarNotifier.value = _previousFocusNavbarCallback;
+    }
+    if (identical(
+      NavigationLayout.focusNavbarAvatarNotifier.value,
+      _focusAvatarCallback,
+    )) {
+      NavigationLayout.focusNavbarAvatarNotifier.value =
+          _previousFocusAvatarCallback;
     }
     _clockTimer?.cancel();
     _avatarFocus.removeListener(_onAvatarFocusChanged);
@@ -237,6 +256,7 @@ class _TopToolbarState extends State<TopToolbar> {
   void _trackPreviousFocus() {
     final primary = FocusManager.instance.primaryFocus;
     if (primary == null) return;
+    if (primary.skipTraversal) return;
     if (_isInsideToolbar(primary)) return;
     _previousFocus = primary;
   }
@@ -250,13 +270,32 @@ class _TopToolbarState extends State<TopToolbar> {
     return false;
   }
 
+  bool _isUsableOutsideToolbar(FocusNode? node) {
+    if (node == null) return false;
+    if (node.skipTraversal) return false;
+    if (_isInsideToolbar(node)) return false;
+    return _isLaidOutFocusNode(node);
+  }
+
   void _restoreFocusBelowToolbar() {
+    final focusContent = NavigationLayout.focusContentFromNavbarNotifier.value;
+    if (focusContent != null) {
+      focusContent();
+      return;
+    }
+
     final previous = _previousFocus;
-    if (previous != null &&
-        previous.canRequestFocus &&
-        previous.context != null &&
-        !_isInsideToolbar(previous)) {
+    if (previous != null && _isUsableOutsideToolbar(previous)) {
       previous.requestFocus();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        final primary = FocusManager.instance.primaryFocus;
+        if (_isUsableOutsideToolbar(primary)) {
+          return;
+        }
+        _previousFocus = null;
+        _moveFocusDown();
+      });
       return;
     }
     _previousFocus = null;
@@ -268,11 +307,31 @@ class _TopToolbarState extends State<TopToolbar> {
     final scope = FocusScope.of(context);
     if (scope.focusInDirection(TraversalDirection.down)) {
       final primary = FocusManager.instance.primaryFocus;
-      if (primary != null && !_isInsideToolbar(primary)) return;
+      if (_isUsableOutsideToolbar(primary)) return;
     }
     final firstBelow = _findFirstFocusableBelowToolbar(scope);
     if (firstBelow != null) {
       firstBelow.requestFocus();
+      return;
+    }
+    final fallback = widget.contentFocusNode;
+    if (fallback != null && fallback.context != null) {
+      final firstContent = _firstFocusableDescendant(fallback);
+      if (firstContent != null) {
+        firstContent.requestFocus();
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          final primary = FocusManager.instance.primaryFocus;
+          if (_isUsableOutsideToolbar(primary)) return;
+          if (attempt < 3) {
+            _moveFocusDown(attempt: attempt + 1);
+          }
+        });
+      } else if (attempt < 3) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _moveFocusDown(attempt: attempt + 1);
+        });
+      }
       return;
     }
     if (attempt < 3) {
@@ -284,11 +343,37 @@ class _TopToolbarState extends State<TopToolbar> {
 
   FocusNode? _findFirstFocusableBelowToolbar(FocusScopeNode scope) {
     for (final node in scope.traversalDescendants) {
-      if (!node.canRequestFocus) continue;
+      if (node.skipTraversal) continue;
+      if (!_isLaidOutFocusNode(node)) continue;
       if (_isInsideToolbar(node)) continue;
       return node;
     }
     return null;
+  }
+
+  FocusNode? _firstFocusableDescendant(FocusNode node) {
+    for (final child in node.children) {
+      if (!child.skipTraversal && _isLaidOutFocusNode(child)) {
+        return child;
+      }
+      final found = _firstFocusableDescendant(child);
+      if (found != null) return found;
+    }
+    return null;
+  }
+
+  bool _isLaidOutFocusNode(FocusNode node) {
+    if (!node.canRequestFocus) {
+      return false;
+    }
+    final context = node.context;
+    if (context == null) {
+      return false;
+    }
+    final renderObject = context.findRenderObject();
+    return renderObject is RenderBox &&
+        renderObject.attached &&
+        renderObject.hasSize;
   }
 
   bool _isActive(String route) => widget.activeRoute == route;
@@ -438,6 +523,11 @@ class _TopToolbarState extends State<TopToolbar> {
         if (event.logicalKey == LogicalKeyboardKey.select ||
             event.logicalKey == LogicalKeyboardKey.enter) {
           _showUserMenu();
+          return KeyEventResult.handled;
+        }
+        if ((PlatformDetection.isTV || PlatformDetection.isDesktop) &&
+            event.logicalKey == LogicalKeyboardKey.arrowDown) {
+          _restoreFocusBelowToolbar();
           return KeyEventResult.handled;
         }
         if (PlatformDetection.isTV &&
