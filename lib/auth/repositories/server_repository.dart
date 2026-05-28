@@ -224,31 +224,72 @@ class ServerRepository {
       }
     }
 
-    if (address.startsWith('http://') || address.startsWith('https://')) {
+    final explicitScheme =
+        address.startsWith('http://') || address.startsWith('https://');
+    final parseTarget = explicitScheme ? address : 'https://$address';
+    final parsed = Uri.tryParse(parseTarget);
+
+    if (parsed == null || parsed.host.isEmpty) {
       addCandidate(address);
       return candidates.toList();
     }
 
-    final hasPort = address.contains(':') && !address.startsWith('[');
-    if (hasPort) {
-      addCandidate('https://$address');
-      addCandidate('http://$address');
+    String buildCandidate(String scheme, {int? port}) {
+      final candidate = Uri(
+        scheme: scheme,
+        host: parsed.host,
+        port: port,
+        path: parsed.path,
+      );
+      return candidate.toString();
+    }
+
+    if (explicitScheme) {
+      final preferredScheme = parsed.scheme.toLowerCase() == 'http'
+          ? 'http'
+          : 'https';
+      final fallbackScheme = preferredScheme == 'https' ? 'http' : 'https';
+
+      if (parsed.hasPort) {
+        addCandidate(buildCandidate(preferredScheme, port: parsed.port));
+        addCandidate(buildCandidate(fallbackScheme, port: parsed.port));
+        return candidates.toList();
+      }
+
+      addCandidate(buildCandidate(preferredScheme));
+      addCandidate(buildCandidate(fallbackScheme));
+
+      for (final port in _defaultPorts) {
+        addCandidate(buildCandidate(preferredScheme, port: port));
+      }
+      for (final port in _defaultPorts) {
+        addCandidate(buildCandidate(fallbackScheme, port: port));
+      }
       return candidates.toList();
     }
 
+    if (parsed.hasPort) {
+      addCandidate(buildCandidate('https', port: parsed.port));
+      addCandidate(buildCandidate('http', port: parsed.port));
+      return candidates.toList();
+    }
+
+    addCandidate(buildCandidate('https'));
+    addCandidate(buildCandidate('http'));
+
     for (final port in _defaultPorts) {
-      addCandidate('https://$address:$port');
+      addCandidate(buildCandidate('https', port: port));
     }
     for (final port in _defaultPorts) {
-      addCandidate('http://$address:$port');
+      addCandidate(buildCandidate('http', port: port));
     }
     return candidates.toList();
   }
 
   String _endpointIdentity(String address) {
     final normalized = normalizeServerBaseUrl(address);
-    final parseTarget = normalized.startsWith('http://') ||
-            normalized.startsWith('https://')
+    final parseTarget =
+        normalized.startsWith('http://') || normalized.startsWith('https://')
         ? normalized
         : 'https://$normalized';
 
