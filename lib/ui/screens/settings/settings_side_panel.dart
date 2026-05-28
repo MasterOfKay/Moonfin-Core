@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -7,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:get_it/get_it.dart';
 import 'package:jellyfin_preference/jellyfin_preference.dart';
 import 'package:moonfin_design/moonfin_design.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:server_core/server_core.dart' hide ImageType;
 import 'package:url_launcher/url_launcher.dart';
 
@@ -1414,6 +1416,15 @@ class _OfflineDownloadsScreenState extends State<_OfflineDownloadsScreen> {
               title: l10n.settingsCustomPath,
               icon: Icons.folder_open,
               hintText: l10n.settingsEnterDownloadFolderPath,
+              pickPath: () async {
+                String? initialDir;
+                try {
+                  initialDir = (await getDownloadsDirectory())?.path;
+                } catch (_) {}
+                return FilePicker.getDirectoryPath(
+                  initialDirectory: initialDir,
+                );
+              },
             ),
             IntPickerPreferenceTile(
               preference: UserPreferences.downloadConcurrentCount,
@@ -2782,6 +2793,17 @@ class _AdvancedOptionsScreenState extends State<_AdvancedOptionsScreen> {
                 title: l10n.customMpvConfPath,
                 icon: Icons.description,
                 hintText: l10n.pathToMpvConf,
+                pickPath: () async {
+                  String? initialDir;
+                  try {
+                    initialDir = (await getApplicationSupportDirectory()).path;
+                  } catch (_) {}
+                  final result = await FilePicker.pickFiles(
+                    dialogTitle: l10n.selectMpvConf,
+                    initialDirectory: initialDir,
+                  );
+                  return result?.files.single.path;
+                },
               ),
               SwitchPreferenceTile(
                 preference: UserPreferences.customMpvConfUnsafeAdvanced,
@@ -2964,12 +2986,14 @@ class _EditableStringPreferenceTile extends StatefulWidget {
   final String title;
   final IconData icon;
   final String hintText;
+  final Future<String?> Function()? pickPath;
 
   const _EditableStringPreferenceTile({
     required this.preference,
     required this.title,
     required this.icon,
     required this.hintText,
+    this.pickPath,
   });
 
   @override
@@ -3022,10 +3046,27 @@ class _EditableStringPreferenceTileState
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text(widget.title),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          decoration: InputDecoration(hintText: widget.hintText),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: controller,
+              autofocus: true,
+              decoration: InputDecoration(hintText: widget.hintText),
+            ),
+            if (widget.pickPath != null)
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton.icon(
+                  onPressed: () async {
+                    final picked = await widget.pickPath!();
+                    if (picked != null) controller.text = picked;
+                  },
+                  icon: const Icon(Icons.folder_open),
+                  label: Text(l10n.browse),
+                ),
+              ),
+          ],
         ),
         actions: [
           TextButton(
