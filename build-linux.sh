@@ -64,6 +64,23 @@ get_app_version() {
   grep '^version:' "$REPO_ROOT/pubspec.yaml" | sed 's/version:[[:space:]]*//' | cut -d'+' -f1 | tr -d '[:space:]'
 }
 
+resolve_mpv_package_name() {
+  # Package naming differs across Ubuntu bases. Prefer newer naming when available.
+  if command -v apt-cache >/dev/null 2>&1; then
+    if apt-cache show libmpv2 >/dev/null 2>&1; then
+      printf '%s\n' "libmpv2"
+      return 0
+    fi
+    if apt-cache show libmpv1 >/dev/null 2>&1; then
+      printf '%s\n' "libmpv1"
+      return 0
+    fi
+  fi
+
+  # Conservative fallback for older Ubuntu/core22 environments.
+  printf '%s\n' "libmpv1"
+}
+
 resolve_build_dir() {
   local candidates=(
     "$REPO_ROOT/build/linux/x64/release/bundle"
@@ -651,6 +668,8 @@ build_snap() {
 
   local snap_dir="$TEMP_DIR/snap"
   local version="$(get_app_version)"
+  local snap_mpv_package
+  snap_mpv_package="$(resolve_mpv_package_name)"
 
   rm -rf "$snap_dir"
   mkdir -p "$snap_dir"
@@ -692,7 +711,7 @@ parts:
       - libgtk-3-0
       - libglib2.0-0
       - libx11-6
-      - libmpv2
+      - ${snap_mpv_package}
       - libsecret-1-0
       - libwebkit2gtk-4.1-0
 EOF
