@@ -472,7 +472,24 @@ build_flutter_binary() {
     echo "  pkg-config mpv libdir: $(pkg-config --variable=libdir mpv 2>/dev/null || true)"
   fi
 
-  "$flutter_bin" build linux --release --dart-define=DISTRIBUTION_CHANNEL=linux
+  local attempt=1 max_attempts=3
+  while true; do
+    if "$flutter_bin" build linux --release --dart-define=DISTRIBUTION_CHANNEL=linux; then
+      return 0
+    fi
+    if [ "$attempt" -ge "$max_attempts" ]; then
+      echo "Error: 'flutter build linux' failed after ${max_attempts} attempts." >&2
+      return 1
+    fi
+    echo "flutter build failed (attempt ${attempt}/${max_attempts}); purging pdfium cache and retrying..." >&2
+    # The plugin downloads into <cmake-binary-dir>/pdfium and copies into .lib/.
+    # Remove both across whatever arch/release dir Flutter used so the next configure
+    # re-fetches from scratch instead of reusing the truncated archive.
+    rm -rf "$REPO_ROOT"/build/linux/*/release/pdfium \
+           "$REPO_ROOT"/build/linux/*/release/.lib/* 2>/dev/null || true
+    sleep $((attempt * 10))
+    attempt=$((attempt + 1))
+  done
 }
 
 build_appimage() {
