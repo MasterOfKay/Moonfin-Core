@@ -1388,10 +1388,11 @@ class _LibraryBrowseScreenState extends State<LibraryBrowseScreen>
 
   Future<void> _showAudiobookGenreSheet() async {
     final temp = {..._discoverAudiobookGenres};
+    final l10n = AppLocalizations.of(context);
     final result = await showGeneralDialog<List<String>>(
       context: context,
       barrierDismissible: true,
-      barrierLabel: 'Close genre panel',
+      barrierLabel: l10n.closeGenrePanel,
       barrierColor: Colors.black54,
       transitionDuration: const Duration(milliseconds: 260),
       pageBuilder: (context, _, _) => const SizedBox.shrink(),

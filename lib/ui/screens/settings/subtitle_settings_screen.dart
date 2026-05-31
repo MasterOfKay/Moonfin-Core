@@ -69,8 +69,8 @@ class SubtitleSettingsScreen extends StatelessWidget {
             ),
             SwitchPreferenceTile(
               preference: UserPreferences.preferSdhSubtitles,
-              title: 'Prefer SDH subtitles',
-              subtitle: 'Prioritize SDH/CC subtitle tracks when auto-selecting.',
+              title: l10n.preferSdhSubtitles,
+              subtitle: l10n.preferSdhSubtitlesSubtitle,
               icon: Icons.hearing,
             ),
             TvFocusHighlight(

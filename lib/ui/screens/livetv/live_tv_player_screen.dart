@@ -1126,6 +1126,7 @@ class _LiveTvPlayerScreenState extends State<LiveTvPlayerScreen> {
   }
 
   Widget _buildStreamStatsRow() {
+    final l10n = AppLocalizations.of(context);
     final (audioLabel, bitrateLabel, subtitleLabel) = _resolveOsdStreamStats();
     return Wrap(
       spacing: AppSpacing.spaceSm,
@@ -1133,17 +1134,17 @@ class _LiveTvPlayerScreenState extends State<LiveTvPlayerScreen> {
       children: [
         _buildStreamStatChip(
           icon: Icons.audiotrack_rounded,
-          label: 'Audio',
+          label: l10n.audio,
           value: audioLabel,
         ),
         _buildStreamStatChip(
           icon: Icons.speed_rounded,
-          label: 'Bitrate',
+          label: l10n.bitrate,
           value: bitrateLabel,
         ),
         _buildStreamStatChip(
           icon: Icons.subtitles_rounded,
-          label: 'Subtitles',
+          label: l10n.subtitles,
           value: subtitleLabel,
         ),
       ],

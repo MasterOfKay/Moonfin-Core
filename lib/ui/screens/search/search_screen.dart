@@ -21,6 +21,7 @@ import '../../navigation/destinations.dart';
 import '../../../util/platform_detection.dart';
 import '../../../util/focus/dpad_keys.dart';
 import '../../../l10n/app_localizations.dart';
+import '../../util/search_group_title_localizer.dart';
 import '../../widgets/library_row.dart';
 import '../../widgets/media_card.dart';
 import '../../widgets/navigation_layout.dart';
@@ -551,26 +552,26 @@ class _SearchScreenState extends State<SearchScreen> {
     final code = (_voiceController.lastErrorCode ?? '').toLowerCase();
     if (_voiceController.permissionPermanentlyDenied ||
         code.contains('permission_permanently_denied')) {
-      return 'Microphone permission is permanently denied. Enable it in system settings.';
+      return l10n.voiceSearchPermissionPermanentlyDenied;
     }
     if (_voiceController.permissionDenied ||
         code.contains('permission_denied')) {
-      return 'Microphone permission is required for voice search.';
+      return l10n.voiceSearchPermissionRequired;
     }
     if (code.contains('error_no_match')) {
-      return 'Did not catch that. Try again.';
+      return l10n.voiceSearchNoMatch;
     }
     if (code.contains('error_speech_timeout')) {
-      return 'No speech detected.';
+      return l10n.voiceSearchNoSpeechDetected;
     }
     if (code.contains('error_audio')) {
-      return 'Microphone error.';
+      return l10n.voiceSearchMicrophoneError;
     }
     if (code.contains('error_network')) {
-      return 'Voice search needs internet.';
+      return l10n.voiceSearchNeedsInternet;
     }
     if (code.contains('error_busy') || code.contains('error_client')) {
-      return 'Voice service is busy. Try again.';
+      return l10n.voiceSearchServiceBusy;
     }
     final message = _voiceController.lastErrorMessage?.trim();
     if (message != null && message.isNotEmpty) {
@@ -592,7 +593,7 @@ class _SearchScreenState extends State<SearchScreen> {
         content: Text(message),
         action: showSettingsAction
             ? SnackBarAction(
-                label: 'Settings',
+                label: AppLocalizations.of(context).settings,
                 onPressed: () {
                   openAppSettings();
                 },
@@ -986,7 +987,10 @@ class _SearchScreenState extends State<SearchScreen> {
           return Padding(
             padding: EdgeInsets.only(top: 8, left: rowLeftInset),
             child: LibraryRow(
-              title: group.title,
+              title: localizeSearchGroupTitle(
+                group.title,
+                AppLocalizations.of(context),
+              ),
               rowHeight: _rowHeight(group, posterSize),
               scrollController: PlatformDetection.isTV
                   ? _rowScrollController(rowIndex)

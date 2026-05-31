@@ -94,9 +94,10 @@ class _SettingsSidePanelState extends ConsumerState<SettingsSidePanel> {
     );
 
     if (!ok && mounted) {
+      final l10n = AppLocalizations.of(context);
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('Could not open $uri')));
+      ).showSnackBar(SnackBar(content: Text(l10n.adminCouldNotOpenUrl('$uri'))));
     }
   }
 
@@ -193,8 +194,8 @@ class _SettingsSidePanelState extends ConsumerState<SettingsSidePanel> {
       if (_showThemeEditorEntry)
         _PanelEntry(
           icon: Icons.brush,
-          title: 'Theme Editor',
-          subtitle: 'Open the Moonfin Theme Editor in your browser',
+          title: l10n.themeEditor,
+          subtitle: l10n.themeEditorSubtitle,
           onTap: () => unawaited(_openThemeEditor()),
         ),
       _PanelEntry(
@@ -530,7 +531,7 @@ class _CustomizationCategoryScreen extends StatelessWidget {
             ),
             _TvSettingsListTile(
               leading: const Icon(Icons.home),
-              title: const Text('Home Screen'),
+              title: Text(l10n.homeScreen),
               subtitle: Text(l10n.settingsHomePageSubtitle),
               onTap: () =>
                   context.pushSettingsScreen(const _HomeScreenCategoryScreen()),
@@ -596,10 +597,8 @@ class _GeneralStyleScreenState extends State<_GeneralStyleScreen> {
             ),
             _TvSettingsListTile(
               leading: const Icon(Icons.download_outlined),
-              title: const Text('Saved themes'),
-              subtitle: const Text(
-                'Manage downloaded plugin themes on this device',
-              ),
+              title: Text(l10n.savedThemesTitle),
+              subtitle: Text(l10n.savedThemesManageSubtitle),
               onTap: () =>
                   context.pushSettingsScreen(const SavedThemesScreen()),
             ),
@@ -773,7 +772,7 @@ class _NavigationCategoryScreenState extends State<_NavigationCategoryScreen> {
               labelOf: (v) => switch (v) {
                 NavbarPosition.top => l10n.topBar,
                 NavbarPosition.left => l10n.leftSidebar,
-                NavbarPosition.bottom => 'Bottom Bar',
+                NavbarPosition.bottom => l10n.bottomBar,
               },
               onChanged: () {
                 final pos = GetIt.instance<UserPreferences>().get(
@@ -842,13 +841,12 @@ class _HomeScreenCategoryScreen extends StatefulWidget {
 
 class _HomeScreenCategoryScreenState extends State<_HomeScreenCategoryScreen> {
   final _prefs = GetIt.instance<UserPreferences>();
-  static const _rowsTypeDescription =
-      'Classic keeps per-row image type and info overlay. Modern uses portrait-to-backdrop rows.';
 
-  String _rowsStyleLabel(HomeRowsStyle style) => switch (style) {
-    HomeRowsStyle.v1 => 'Classic',
-    HomeRowsStyle.v2 => 'Modern',
-  };
+  String _rowsStyleLabel(AppLocalizations l10n, HomeRowsStyle style) =>
+      switch (style) {
+        HomeRowsStyle.v1 => l10n.homeRowsStyleClassic,
+        HomeRowsStyle.v2 => l10n.homeRowsStyleModern,
+      };
 
   void _reloadHomeRows() {
     if (!GetIt.instance.isRegistered<HomeViewModel>()) return;
@@ -903,16 +901,16 @@ class _HomeScreenCategoryScreenState extends State<_HomeScreenCategoryScreen> {
     final showGenresRows = _prefs.get(UserPreferences.displayGenresRows);
     final rowsStyle = _prefs.get(UserPreferences.homeRowsStyle);
     return Scaffold(
-      appBar: buildSettingsAppBar(context, const Text('Home Screen')),
+      appBar: buildSettingsAppBar(context, Text(l10n.homeScreen)),
       body: ListView(
         children: [
-          const _SectionHeader('Home Rows'),
+          _SectionHeader(l10n.homeRowsSection),
           EnumPreferenceTile<HomeRowsStyle>(
             preference: UserPreferences.homeRowsStyle,
-            title: 'Rows Type',
-            description: _rowsTypeDescription,
+            title: l10n.rowsType,
+            description: l10n.rowsTypeDescription,
             icon: Icons.view_carousel,
-            labelOf: _rowsStyleLabel,
+            labelOf: (style) => _rowsStyleLabel(l10n, style),
             onChanged: () {
               _pushPersonalizationSync();
               _reloadHomeRows();
@@ -938,67 +936,63 @@ class _HomeScreenCategoryScreenState extends State<_HomeScreenCategoryScreen> {
           ),
           SwitchPreferenceTile(
             preference: UserPreferences.displayFavoritesRows,
-            title: 'Display Favorites Rows',
-            subtitle:
-                'Show Favorite Movies, Series, and other favorite rows in Home Sections.',
+            title: l10n.displayFavoritesRows,
+            subtitle: l10n.displayFavoritesRowsSubtitle,
             icon: Icons.favorite,
             onChanged: _onFavoritesRowsToggleChanged,
           ),
           if (showFavoritesRows)
             EnumPreferenceTile<LibrarySortBy>(
               preference: UserPreferences.favoritesRowSortBy,
-              title: 'Favorites Row Sorting',
-              description:
-                  'Sort Favorites rows by date added, release date, alphabetically, and more.',
+              title: l10n.favoritesRowSorting,
+              description: l10n.favoritesRowSortingDescription,
               icon: Icons.sort,
               labelOf: (v) => v.displayName,
               onChanged: _onFavoritesSortChanged,
             ),
           SwitchPreferenceTile(
             preference: UserPreferences.displayCollectionsRows,
-            title: 'Display Collections Rows',
-            subtitle: 'Show Collections rows in Home Sections.',
+            title: l10n.displayCollectionsRows,
+            subtitle: l10n.displayCollectionsRowsSubtitle,
             icon: Icons.collections,
             onChanged: _onCollectionsRowsToggleChanged,
           ),
           if (showCollectionsRows)
             EnumPreferenceTile<LibrarySortBy>(
               preference: UserPreferences.collectionsRowSortBy,
-              title: 'Collections Row Sorting',
-              description:
-                  'Sort Collections rows by date added, release date, alphabetically, and more.',
+              title: l10n.collectionsRowSorting,
+              description: l10n.collectionsRowSortingDescription,
               icon: Icons.sort,
               labelOf: (v) => v.displayName,
               onChanged: _onCollectionsSortChanged,
             ),
           SwitchPreferenceTile(
             preference: UserPreferences.displayGenresRows,
-            title: 'Display Genres Rows',
-            subtitle: 'Show Genres rows in Home Sections.',
+            title: l10n.displayGenresRows,
+            subtitle: l10n.displayGenresRowsSubtitle,
             icon: Icons.theater_comedy,
             onChanged: _onGenresRowsToggleChanged,
           ),
           if (showGenresRows) ...[
             EnumPreferenceTile<LibrarySortBy>(
               preference: UserPreferences.genresRowSortBy,
-              title: 'Genres Row Sorting',
-              description:
-                  'Sort Genres rows by date added, release date, alphabetically, and more.',
+              title: l10n.genresRowSorting,
+              description: l10n.genresRowSortingDescription,
               icon: Icons.sort,
               labelOf: (v) => v.displayName,
               onChanged: _onGenresSortChanged,
             ),
             EnumPreferenceTile<GenresRowItemFilter>(
               preference: UserPreferences.genresRowItemFilter,
-              title: 'Genres Row Items',
-              description: 'Show Movies, Series, or both in Genres rows.',
+              title: l10n.genresRowItems,
+              description: l10n.genresRowItemsDescription,
               icon: Icons.filter_list,
               labelOf: (v) => v.displayName,
               onChanged: _onGenresItemFilterChanged,
             ),
           ],
 
-          const _SectionHeader('Appearance'),
+          _SectionHeader(l10n.appearance),
           SwitchPreferenceTile(
             preference: UserPreferences.seriesThumbnailsEnabled,
             title: l10n.seriesThumbnails,
@@ -1007,7 +1001,7 @@ class _HomeScreenCategoryScreenState extends State<_HomeScreenCategoryScreen> {
           ),
           EnumPreferenceTile<PosterSize>(
             preference: UserPreferences.posterSize,
-            title: 'Card Size',
+            title: l10n.cardSize,
             icon: Icons.photo_size_select_large,
             labelOf: (v) => switch (v) {
               PosterSize.small => l10n.small,
@@ -1025,7 +1019,7 @@ class _HomeScreenCategoryScreenState extends State<_HomeScreenCategoryScreen> {
               icon: Icons.info_outline,
             ),
 
-          const _SectionHeader('Audio'),
+          _SectionHeader(l10n.audio),
           SwitchPreferenceTile(
             preference: UserPreferences.themeMusicOnHomeRows,
             title: l10n.themeMusicOnHomeRows,
@@ -1215,7 +1209,7 @@ class _IntegrationsScreenState extends State<_IntegrationsScreen> {
                   width: 24,
                   height: 24,
                 ),
-                title: const Text('Home Screen Sections'),
+                title: Text(l10n.homeScreenSectionsTitle),
                 subtitle: Text(l10n.homeScreenSectionsIntegrationDescription),
                 onTap: () => context.pushSettingsScreen(
                   const HomeScreenSectionsIntegrationScreen(),
@@ -1227,7 +1221,7 @@ class _IntegrationsScreenState extends State<_IntegrationsScreen> {
                   width: 24,
                   height: 24,
                 ),
-                title: const Text('KefinTweaks'),
+                title: Text(l10n.kefinTweaksTitle),
                 subtitle: Text(l10n.kefinTweaksIntegrationDescription),
                 onTap: () => context.pushSettingsScreen(
                   const KefinTweaksIntegrationScreen(),
@@ -2071,7 +2065,7 @@ class _VideoPlaybackScreen extends StatelessWidget {
                 DolbyVisionProfile7DirectPlayBehavior.auto =>
                   l10n.settingsAutoAftkrtEnabled,
                 DolbyVisionProfile7DirectPlayBehavior.enabled =>
-                  'Supported on this device',
+                  l10n.supportedOnThisDevice,
                 DolbyVisionProfile7DirectPlayBehavior.disabled =>
                   l10n.settingsDisabledPreferTranscode,
               },
@@ -2096,18 +2090,18 @@ class _VideoPlaybackScreen extends StatelessWidget {
           if (PlatformDetection.isWindows)
             EnumPreferenceTile<AutoHdrSwitchingBehavior>(
               preference: UserPreferences.autoHdrSwitchingBehavior,
-              title: 'Auto HDR Switching',
-              description:
-                  'Automatically enable HDR for HDR video playback and restore display mode on exit.',
+              title: l10n.autoHdrSwitching,
+              description: l10n.autoHdrSwitchingDescription,
               icon: Icons.hdr_strong,
               labelOf: (v) => switch (v) {
                 AutoHdrSwitchingBehavior.disabled => l10n.disabled,
-                AutoHdrSwitchingBehavior.whenFullscreen => 'When fullscreen',
+                AutoHdrSwitchingBehavior.whenFullscreen =>
+                  l10n.whenFullscreen,
                 AutoHdrSwitchingBehavior.always => l10n.always,
               },
             ),
 
-          const _SectionHeader('Transcoding Limits'),
+          _SectionHeader(l10n.transcodingLimits),
           StringPickerPreferenceTile(
             preference: UserPreferences.maxBitrate,
             title: l10n.maxStreamingBitrate,
@@ -2203,7 +2197,7 @@ class _ExternalPlayerAppPickerTileState
   String _selectedLabel(String component) {
     final normalized = component.trim();
     if (normalized.isEmpty) {
-      return 'Ask each time';
+      return AppLocalizations.of(context).settingsAskEachTime;
     }
 
     for (final player in _players) {
@@ -2233,14 +2227,19 @@ class _ExternalPlayerAppPickerTileState
         context: context,
         useRootNavigator: false,
         builder: (dialogContext) => SimpleDialog(
-          title: const Text('External player app'),
+          title: Text(AppLocalizations.of(dialogContext).externalPlayerApp),
           children: [
             TvFocusHighlight(
               builder: (_, _) => ListTile(
                 autofocus: normalizedCurrent.isEmpty,
                 leading: const Icon(Icons.help_outline),
-                title: const Text('Ask each time'),
-                subtitle: const Text('Show app chooser when playback starts.'),
+                title: Text(
+                  AppLocalizations.of(dialogContext).settingsAskEachTime,
+                ),
+                subtitle: Text(
+                  AppLocalizations.of(dialogContext)
+                      .externalPlayerAskEachTimeSubtitle,
+                ),
                 trailing: normalizedCurrent.isEmpty
                     ? const Icon(Icons.check)
                     : null,
@@ -2294,11 +2293,11 @@ class _ExternalPlayerAppPickerTileState
           valueListenable: _componentBinding,
           builder: (context, component, _) {
             final subtitle = _loading
-                ? 'Loading installed players...'
+                ? AppLocalizations.of(context).loadingInstalledPlayers
                 : _selectedLabel(component);
             return _TvSettingsListTile(
               leading: const Icon(Icons.apps),
-              title: const Text('External player app'),
+              title: Text(AppLocalizations.of(context).externalPlayerApp),
               subtitle: Text(subtitle),
               onTap: enabled ? () => _showPicker(component) : null,
             );
@@ -2437,17 +2436,17 @@ class _AudioPreferencesScreenState extends State<_AudioPreferencesScreen> {
     return <Widget>[
       _TvSettingsListTile(
         leading: const Icon(Icons.router),
-        title: const Text('Connection'),
+        title: Text(l10n.connection),
         subtitle: Text(routeSubtitleParts.join(' • ')),
       ),
       _TvSettingsListTile(
         leading: const Icon(Icons.memory),
-        title: const Text('Audio Transcode Target'),
+        title: Text(l10n.audioTranscodeTarget),
         subtitle: Text(_joinedOrUnknown(l10n, decodeCodecs)),
       ),
       _TvSettingsListTile(
         leading: const Icon(Icons.settings_input_hdmi),
-        title: const Text('Passthrough'),
+        title: Text(l10n.passthrough),
         subtitle: Text(_joinedOrUnknown(l10n, passthroughCodecs)),
       ),
     ];
@@ -2467,8 +2466,8 @@ class _AudioPreferencesScreenState extends State<_AudioPreferencesScreen> {
     }
 
     final status = isSupported
-        ? 'Supported on this device'
-        : 'Not Supported on this device';
+      ? l10n.supportedOnThisDevice
+      : l10n.notSupportedOnThisDevice;
     return '$baseSubtitle\n${l10n.status}: $status';
   }
 
@@ -2479,7 +2478,7 @@ class _AudioPreferencesScreenState extends State<_AudioPreferencesScreen> {
       appBar: buildSettingsAppBar(context, Text(l10n.settingsAudioPreferences)),
       body: ListView(
         children: [
-          const _SectionHeader('Media Player Behavior'),
+          _SectionHeader(l10n.mediaPlayerBehavior),
           SwitchPreferenceTile(
             preference: UserPreferences.audioNightMode,
             title: l10n.nightMode,
@@ -2593,10 +2592,11 @@ class _AudioPreferencesScreenState extends State<_AudioPreferencesScreen> {
             ),
             SwitchPreferenceTile(
               preference: UserPreferences.dtsXPassthroughEnabled,
-              title: 'DTS:X (DTS UHD) Passthrough',
+              title: l10n.settingsAudioDtsXPassthrough,
               subtitle: _capabilitySubtitle(
                 l10n,
-                baseSubtitle: 'Bitstream DTS:X (DTS UHD) to external decoder.',
+                baseSubtitle:
+                    l10n.settingsAudioBitstreamDtsXToExternalDecoder,
                 isSupported: PlatformDetection.supportsDtsXAudio,
               ),
               icon: Icons.high_quality,
@@ -2613,7 +2613,7 @@ class _AudioPreferencesScreenState extends State<_AudioPreferencesScreen> {
             ),
             SwitchPreferenceTile(
               preference: UserPreferences.trueHdAtmosPassthroughEnabled,
-              title: 'TrueHD with Atmos (JOC) Passthrough',
+              title: l10n.settingsAudioTrueHdJocPassthrough,
               subtitle: _capabilitySubtitle(
                 l10n,
                 baseSubtitle:
@@ -2625,7 +2625,7 @@ class _AudioPreferencesScreenState extends State<_AudioPreferencesScreen> {
           ],
 
           if (PlatformDetection.isAndroid && PlatformDetection.isTV) ...[
-            const _SectionHeader('Detected Audio Capabilities'),
+            _SectionHeader(l10n.settingsDetectedAudioCapabilities),
             ..._buildDetectedCapabilities(l10n),
           ],
         ],
@@ -2679,7 +2679,7 @@ class _AutomationQueueScreenState extends State<_AutomationQueueScreen> {
       ),
       body: ListView(
         children: [
-          const _SectionHeader('Playback Enhancements'),
+          _SectionHeader(l10n.playbackEnhancements),
           SwitchPreferenceTile(
             preference: UserPreferences.cinemaModeEnabled,
             title: l10n.settingsCinemaMode,
@@ -2697,11 +2697,11 @@ class _AutomationQueueScreenState extends State<_AutomationQueueScreen> {
             },
           ),
 
-          const _SectionHeader('Automatic Queuing'),
+          _SectionHeader(l10n.automaticQueuing),
           ListTile(
             leading: const Icon(Icons.queue),
             title: Text(l10n.mediaQueuing),
-            subtitle: const Text('Always on.'),
+            subtitle: Text(l10n.alwaysOn),
           ),
           SwitchPreferenceTile(
             preference: UserPreferences.autoplayNextEpisode,
@@ -2736,9 +2736,8 @@ class _AutomationQueueScreenState extends State<_AutomationQueueScreen> {
           if (showReplaceSkipOutroWithNextUp)
             SwitchPreferenceTile(
               preference: UserPreferences.replaceSkipOutroWithNextUp,
-              title: 'Replace Skip Outro with Next Up Display',
-              subtitle:
-                  'Show the Next Up overlay instead of the Skip Outro button.',
+              title: l10n.replaceSkipOutroWithNextUpDisplay,
+              subtitle: l10n.replaceSkipOutroWithNextUpDisplaySubtitle,
               icon: Icons.skip_next,
             ),
           EnumPreferenceTile<StillWatchingBehavior>(
@@ -2800,12 +2799,11 @@ class _AdvancedOptionsScreenState extends State<_AdvancedOptionsScreen> {
               labelOf: (v) => l10n.settingsMillisecondsValue(v.round()),
             ),
             if (PlatformDetection.isAndroid && PlatformDetection.isTV) ...[
-              const _SectionHeader('Player Routing'),
+              _SectionHeader(l10n.playerRouting),
               SwitchPreferenceTile(
                 preference: UserPreferences.preferExoPlayerFfmpeg,
-                title: 'Prefer software decoders',
-                subtitle:
-                    'Use FFmpeg (audio) and libgav1 (AV1) before hardware decoders. Disable if HDMI audio passthrough breaks.',
+                title: l10n.preferSoftwareDecoders,
+                subtitle: l10n.preferSoftwareDecodersSubtitle,
                 icon: Icons.memory,
               ),
               SwitchPreferenceTile(
@@ -2834,9 +2832,8 @@ class _AdvancedOptionsScreenState extends State<_AdvancedOptionsScreen> {
               ),
               SwitchPreferenceTile(
                 preference: UserPreferences.useExternalPlayer,
-                title: 'Use external player',
-                subtitle:
-                    'Open video playback in your selected external app on Android TV.',
+                title: l10n.useExternalPlayer,
+                subtitle: l10n.useExternalPlayerSubtitle,
                 icon: Icons.open_in_new,
               ),
               const _ExternalPlayerAppPickerTile(),

@@ -2049,7 +2049,7 @@ class _DetailContentState extends State<_DetailContent> {
             if (hasSeerrButton) ...[
               const SizedBox(width: 16),
               _DetailActionButton(
-                label: 'Seerr',
+                label: l10n.seerr,
                 icon: Icons.explore_outlined,
                 onPressed: () {
                   context.push(Destinations.seerrPerson(item.tmdbId!));
@@ -2128,7 +2128,7 @@ class _DetailContentState extends State<_DetailContent> {
       if (guestAppearances.isNotEmpty) ...[
         const SizedBox(height: 32),
         HorizontalScrollSection(
-          title: 'Guest Appearances',
+          title: l10n.guestAppearances,
           builder: (_, ctrl) => _FilmographyRow(
             items: guestAppearances,
             imageApi: viewModel.imageApi,
@@ -2173,7 +2173,7 @@ class _DetailContentState extends State<_DetailContent> {
       if (hasSeerrAppearances) ...[
         const SizedBox(height: 32),
         HorizontalScrollSection(
-          title: 'Appearances (Seerr)',
+          title: l10n.appearancesSeerr,
           builder: (_, ctrl) => _SeerrAppearancesRow(
             items: seerrAppearances,
             prefs: prefs,
@@ -4735,7 +4735,7 @@ class _ActionButtonsState extends State<_ActionButtons> {
         ),
       if (!isBook && !isPhoto && _isInSyncPlayGroup())
         _DetailActionButton(
-          label: 'Watch with group',
+          label: l10n.watchWithGroup,
           icon: Icons.groups_rounded,
           onPressed: () => _watchWithGroup(context, item),
           isActive: true,
@@ -5953,12 +5953,13 @@ class _ActionButtonsState extends State<_ActionButtons> {
       context,
       title: AppLocalizations.of(context).audioTrack,
       options: streams.asMap().entries.map((entry) {
+        final l10n = AppLocalizations.of(context);
         final trackNumber = entry.key + 1;
         final s = entry.value;
         final display =
             s['DisplayTitle'] as String? ??
             s['Language'] as String? ??
-            'Unknown';
+            l10n.unknown;
         final codec = s['Codec'] as String?;
         return TrackOption(
           label: '$trackNumber - $display',
@@ -6162,7 +6163,12 @@ class _ActionButtonsState extends State<_ActionButtons> {
       }
       messenger.showSnackBar(
         SnackBar(
-          content: Text(_remoteSubtitleErrorMessage(error, action: 'search')),
+          content: Text(
+            _remoteSubtitleErrorMessage(
+              error,
+              action: AppLocalizations.of(context).search,
+            ),
+          ),
         ),
       );
       return;
@@ -6186,10 +6192,11 @@ class _ActionButtonsState extends State<_ActionButtons> {
       context,
       title: AppLocalizations.of(context).downloadSubtitles,
       options: results.map((subtitle) {
+        final l10n = AppLocalizations.of(context);
         final label =
             subtitle['Name'] as String? ??
             subtitle['Author'] as String? ??
-            'Subtitle';
+          l10n.subtitles;
         final subtitleText = _remoteSubtitleOptionSubtitle(subtitle);
         return TrackOption(
           label: label,
@@ -6245,7 +6252,7 @@ class _ActionButtonsState extends State<_ActionButtons> {
                 newStream['DisplayTitle'] as String? ??
                     newStream['Title'] as String? ??
                     newStream['Language'] as String? ??
-                    'Unknown',
+                    AppLocalizations.of(context).unknown,
               ),
             ),
           ),
@@ -6264,7 +6271,12 @@ class _ActionButtonsState extends State<_ActionButtons> {
       }
       messenger.showSnackBar(
         SnackBar(
-          content: Text(_remoteSubtitleErrorMessage(error, action: 'download')),
+          content: Text(
+            _remoteSubtitleErrorMessage(
+              error,
+              action: AppLocalizations.of(context).download,
+            ),
+          ),
         ),
       );
     }
@@ -6301,19 +6313,20 @@ class _ActionButtonsState extends State<_ActionButtons> {
     final options = [
       TrackOption(label: AppLocalizations.of(context).none),
       ...displayStreams.asMap().entries.map((entry) {
+        final l10n = AppLocalizations.of(context);
         final trackNumber = entry.key + 1;
         final s = entry.value;
         final display =
             s['DisplayTitle'] as String? ??
             s['Language'] as String? ??
-            'Unknown';
+          l10n.unknown;
         final subtitleType =
-            ((s['Codec'] as String?) ?? 'Unknown').toUpperCase();
+          ((s['Codec'] as String?) ?? l10n.unknown).toUpperCase();
         final deliveryMethod =
             (s['DeliveryMethod'] as String?)?.trim().toLowerCase();
         final location = s['IsExternal'] == true
-            ? 'External'
-            : (deliveryMethod == 'embed' ? 'Embedded' : 'Internal');
+          ? l10n.external
+          : (deliveryMethod == 'embed' ? l10n.embedded : l10n.internal);
         return TrackOption(
           label: '$trackNumber - $display',
           subtitle: '$subtitleType · $location',
