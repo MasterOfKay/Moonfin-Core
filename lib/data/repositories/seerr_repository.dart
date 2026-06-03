@@ -355,23 +355,21 @@ class SeerrRepository {
       authType: authType,
     );
 
-    if (response.success) {
-      await _store.setString(
-        _moonfinDisplayNameKey,
-        response.displayName ?? '',
-      );
-      await _store.setString(
-        _moonfinUserIdKey,
-        response.jellyseerrUserId?.toString() ?? '',
-      );
-      await _store.setString(_authMethodKey, 'moonfin');
-      await _store.setBool(_enabledKey, true);
-      await _store.setBool(_lastConnectionSuccessKey, true);
-      await _store.setBool(_autoLoginFailedKey, false);
-      _isMoonfinMode = true;
-      _isAvailable = true;
-      _invalidateSessionCache();
-    }
+    await _store.setString(
+      _moonfinDisplayNameKey,
+      response.displayName ?? '',
+    );
+    await _store.setString(
+      _moonfinUserIdKey,
+      response.jellyseerrUserId?.toString() ?? '',
+    );
+    await _store.setString(_authMethodKey, 'moonfin');
+    await _store.setBool(_enabledKey, true);
+    await _store.setBool(_lastConnectionSuccessKey, true);
+    await _store.setBool(_autoLoginFailedKey, false);
+    _isMoonfinMode = true;
+    _isAvailable = true;
+    _invalidateSessionCache();
 
     return response;
   }
