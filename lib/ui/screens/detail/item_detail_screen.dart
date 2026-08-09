@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:ui';
 
 import '../../widgets/offline_aware_image.dart';
+import '../../widgets/filler_badge.dart';
 import '../../widgets/identify_dialog.dart';
 import '../../widgets/focus/context_action.dart' show canIdentifyItemType;
 import 'package:dio/dio.dart';
@@ -15,6 +16,7 @@ import 'package:playback_core/playback_core.dart';
 import 'package:server_core/server_core.dart';
 
 import '../../../data/models/aggregated_item.dart';
+import '../../../data/repositories/anime_filler_repository.dart';
 import '../../../data/repositories/item_mutation_repository.dart';
 import '../../../data/repositories/mdblist_repository.dart';
 import '../../../data/repositories/tmdb_repository.dart';
@@ -13304,6 +13306,49 @@ class DetailEpisodeCardState extends State<DetailEpisodeCard>
     with FocusStateMixin {
   final _selectKeyHandler = LongPressSelectKeyHandler();
 
+  EpisodeFillerFlags? _fillerFlags;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadFillerFlags();
+  }
+
+  /// Looks up the filler marker for this episode. The repository shares one
+  /// request per series, so a screenful of cards asking at once is a single
+  /// call, and a series already loaded resolves from cache with no rebuild.
+  Future<void> _loadFillerFlags() async {
+    final seriesId = widget.episode.seriesId;
+    if (seriesId == null || seriesId.isEmpty) return;
+
+    final repository = GetIt.instance<AnimeFillerRepository>();
+
+    final cached = repository.peek(
+      seriesId: seriesId,
+      episodeId: widget.episode.id,
+    );
+    if (cached != null) {
+      _fillerFlags = cached;
+      return;
+    }
+
+    // Already looked up and this episode was not marked, so there is nothing
+    // to wait for and no reason to ask again.
+    if (repository.isResolved(seriesId)) return;
+
+    await repository.getForSeries(seriesId);
+    if (!mounted) return;
+
+    // Read back through peek so id normalisation stays in the repository.
+    final forThisEpisode = repository.peek(
+      seriesId: seriesId,
+      episodeId: widget.episode.id,
+    );
+    if (forThisEpisode == null) return;
+
+    setState(() => _fillerFlags = forThisEpisode);
+  }
+
   @override
   void dispose() {
     _selectKeyHandler.dispose();
@@ -13332,6 +13377,7 @@ class DetailEpisodeCardState extends State<DetailEpisodeCard>
     final episode = widget.episode;
     final isNeon = ThemeRegistry.active.id == ThemeRegistry.neonPulseId;
     final desktopScale = _desktopUiScale();
+    final fillerFlags = _fillerFlags;
     final epNum = episode.indexNumber;
     final runtime = episode.runtime;
     final runtimeText = runtime != null
@@ -13470,18 +13516,34 @@ class DetailEpisodeCardState extends State<DetailEpisodeCard>
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                               ),
-                              if (runtimeText != null) ...[
+                              if (runtimeText != null || fillerFlags != null) ...[
                                 const SizedBox(height: 2),
-                                Text(
-                                  runtimeText,
-                                  style: Theme.of(context).textTheme.bodySmall
-                                      ?.copyWith(
-                                        color: isNeon
-                                            ? AppColorScheme.onSurface.withValues(
-                                                alpha: 0.8,
-                                              )
-                                            : Colors.white.withValues(alpha: 0.5),
+                                Row(
+                                  children: [
+                                    if (runtimeText != null)
+                                      Flexible(
+                                        child: Text(
+                                          runtimeText,
+                                          style: Theme.of(context).textTheme.bodySmall
+                                              ?.copyWith(
+                                                color: isNeon
+                                                    ? AppColorScheme.onSurface.withValues(
+                                                        alpha: 0.8,
+                                                      )
+                                                    : Colors.white.withValues(alpha: 0.5),
+                                              ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
                                       ),
+                                    if (runtimeText != null && fillerFlags != null)
+                                      SizedBox(width: isMobile ? 8 : 8 * desktopScale),
+                                    if (fillerFlags != null)
+                                      FillerBadge(
+                                        flags: fillerFlags,
+                                        scale: isMobile ? 1.0 : desktopScale,
+                                      ),
+                                  ],
                                 ),
                               ],
                               if (episode.overview != null) ...[

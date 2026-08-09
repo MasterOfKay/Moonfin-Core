@@ -1819,6 +1819,14 @@
       }
     }
   },
+  "fillerBadge": "Filler",
+  "@fillerBadge": {
+    "description": "Badge on an anime episode that is filler, meaning it is not adapted from the source material"
+  },
+  "recapBadge": "Recap",
+  "@recapBadge": {
+    "description": "Badge on an anime episode that recaps earlier episodes"
+  },
   "chapterNumber": "Chapter {number}",
   "@chapterNumber": {
     "description": "Default name for a chapter",
