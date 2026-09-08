@@ -3,6 +3,7 @@ import 'dart:ui';
 
 import '../../widgets/bounded_network_image.dart';
 import '../../widgets/offline_aware_image.dart';
+import '../../widgets/anime_marker_badge.dart';
 import '../../widgets/identify_dialog.dart';
 import '../../widgets/focus/context_action.dart' show canIdentifyItemType;
 
@@ -13559,6 +13560,12 @@ class _EpisodeListCardState extends State<_EpisodeListCard>
                                   ),
                             ),
                           ],
+                          AnimeMarkerBadge(
+                            seriesId: widget.episode.seriesId,
+                            episodeId: widget.episode.id,
+                            scale: 0.9,
+                            padding: const EdgeInsets.only(left: 6),
+                          ),
                         ],
                       ),
                     ),
@@ -14026,6 +14033,12 @@ class DetailEpisodeCardState extends State<DetailEpisodeCard>
                                       ),
                                 ),
                               ],
+                              AnimeMarkerBadge(
+                                seriesId: episode.seriesId,
+                                episodeId: episode.id,
+                                scale: desktopScale,
+                                padding: const EdgeInsets.only(top: 4),
+                              ),
                               if (_showsEpisodeOverview(episode, prefs)) ...[
                                 const SizedBox(height: 4),
                                 Text(

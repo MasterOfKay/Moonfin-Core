@@ -4,6 +4,22 @@
   "@appTitle": {
     "description": "The application title"
   },
+  "animeMarkerFiller": "Filler",
+  "@animeMarkerFiller": {
+    "description": "Badge on an anime episode that is filler, meaning it is not adapted from the source manga"
+  },
+  "animeMarkerMixed": "Mixed",
+  "@animeMarkerMixed": {
+    "description": "Badge on an anime episode that mixes source material with filler, so it still contains story"
+  },
+  "animeMarkerAnimeCanon": "Anime Canon",
+  "@animeMarkerAnimeCanon": {
+    "description": "Badge on an anime episode that is not in the source manga but is part of the anime's own continuity"
+  },
+  "animeMarkerRecap": "Recap",
+  "@animeMarkerRecap": {
+    "description": "Badge on an anime episode that recaps earlier episodes"
+  },
   "accountPreferences": "ACCOUNT PREFERENCES",
   "@accountPreferences": {
     "description": "Section header for account preferences settings"
