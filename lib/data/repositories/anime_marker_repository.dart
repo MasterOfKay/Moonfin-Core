@@ -6,20 +6,39 @@ import 'package:server_core/server_core.dart';
 /// The kind of an episode, for the purpose of drawing a badge on its card.
 enum AnimeEpisodeKind { mangaCanon, animeCanon, mixed, filler }
 
+/// Whether a file carries only the original Japanese audio, or a dub.
+enum AnimeAudioKind { subbed, dubbed }
+
+AnimeAudioKind? parseAnimeAudioKind(Object? raw) => switch (raw) {
+  'Subbed' => AnimeAudioKind.subbed,
+  'Dubbed' => AnimeAudioKind.dubbed,
+  _ => null,
+};
+
 /// The marker for a single episode.
+///
+/// The two halves are independent: an episode can have a subbed/dubbed verdict without the
+/// show being on AnimeFillerList at all, so [kind] is nullable.
 class AnimeEpisodeMarker {
-  final AnimeEpisodeKind kind;
+  final AnimeEpisodeKind? kind;
   final bool recap;
+  final AnimeAudioKind? audio;
 
-  const AnimeEpisodeMarker({required this.kind, required this.recap});
+  const AnimeEpisodeMarker({
+    required this.kind,
+    required this.recap,
+    this.audio,
+  });
 
-  /// True when this is worth drawing a pill for. Manga canon is the ordinary
-  /// case and gets no badge, since badging almost every episode says nothing.
+  /// True when this is worth drawing a pill for.
+  ///
+  /// Noteworthy episodes are those that are filler, mixed, recaps, or have a subbed/dubbed verdict. 
+  /// Canon episodes with no audio verdict are not noteworthy.
   bool get isNoteworthy =>
       recap ||
+      audio != null ||
       kind == AnimeEpisodeKind.filler ||
-      kind == AnimeEpisodeKind.mixed ||
-      kind == AnimeEpisodeKind.animeCanon;
+      kind == AnimeEpisodeKind.mixed;
 
   static AnimeEpisodeKind? _parseKind(Object? raw) {
     switch (raw) {
@@ -62,6 +81,15 @@ class AnimeMarkerRepository {
 
   String? lastDiagnostic;
 
+  /// Series IDs that have been asked for but returned no markers yet. 
+  /// This is not a cache: the plugin will eventually fetch the table and return a real verdict, 
+  /// so this is only a temporary state.
+  final _pendingSeries = <String>{};
+
+  /// Season id to its verdict, for the season list. Only seasons whose episodes all agreed
+  /// are in here, so a season holding both a dub and a sub simply has no entry.
+  final _seasonAudio = <String, Map<String, AnimeAudioKind>>{};
+
   final _cache = <String, Map<String, AnimeEpisodeMarker>>{};
   final _pending = <String, Completer<Map<String, AnimeEpisodeMarker>?>>{};
   final _negativeCache = <String, DateTime>{};
@@ -84,6 +112,17 @@ class AnimeMarkerRepository {
   /// are used as-is.
   static String _normalizeId(String id) =>
       id.replaceAll('-', '').toLowerCase();
+
+  /// True when the server matched this series but has not fetched its table yet, so its
+  /// markers are still coming. A series that matched nothing is not pending.
+  bool isPending(String seriesId) => _pendingSeries.contains(seriesId);
+
+  AnimeAudioKind? peekSeason({
+    required String seriesId,
+    required String seasonId,
+  }) {
+    return _seasonAudio[seriesId]?[_normalizeId(seasonId)];
+  }
 
   /// True once a series has been looked up, successfully or not, so a card can
   /// tell "no marker for this episode" apart from "not asked yet".
@@ -167,9 +206,12 @@ class AnimeMarkerRepository {
       // Not cached, because it becomes available without anything changing here.
       if (data['pending'] == true) {
         lastDiagnostic = 'server-pending';
+        _pendingSeries.add(seriesId);
         _negativeCache[seriesId] = DateTime.now();
         return completeWith(null);
       }
+
+      _pendingSeries.remove(seriesId);
 
       final rawEpisodes = data['episodes'];
       final markers = <String, AnimeEpisodeMarker>{};
@@ -179,14 +221,35 @@ class AnimeMarkerRepository {
           if (key is! String || value is! Map) return;
 
           final kind = AnimeEpisodeMarker._parseKind(value['kind']);
-          if (kind == null) return;
+          final audio = parseAnimeAudioKind(value['audio']);
+          final recap = value['recap'] == true;
+
+          // An episode is noteworthy if it is a filler, mixed, recap, or has a subbed/dubbed verdict.
+          if (kind == null && audio == null && !recap) return;
 
           markers[_normalizeId(key)] = AnimeEpisodeMarker(
             kind: kind,
-            recap: value['recap'] == true,
+            recap: recap,
+            audio: audio,
           );
         });
       }
+
+      final rawSeasons = data['seasons'];
+      final seasons = <String, AnimeAudioKind>{};
+
+      if (rawSeasons is Map) {
+        rawSeasons.forEach((key, value) {
+          if (key is! String || value is! Map) return;
+
+          final audio = parseAnimeAudioKind(value['audio']);
+          if (audio == null) return;
+
+          seasons[_normalizeId(key)] = audio;
+        });
+      }
+
+      _seasonAudio[seriesId] = seasons;
 
       lastDiagnostic = markers.isEmpty ? 'server-sent-none' : 'ok-${markers.length}';
       _storeCacheEntry(seriesId, markers);
@@ -217,7 +280,9 @@ class AnimeMarkerRepository {
 
   void clearCache() {
     _cache.clear();
+    _seasonAudio.clear();
     _negativeCache.clear();
+    _pendingSeries.clear();
     _unavailableSince = null;
   }
 
@@ -241,7 +306,9 @@ class AnimeMarkerRepository {
     _cache.remove(seriesId);
     _cache[seriesId] = markers;
     while (_cache.length > _maxCacheEntries) {
-      _cache.remove(_cache.keys.first);
+      final oldest = _cache.keys.first;
+      _cache.remove(oldest);
+      _seasonAudio.remove(oldest);
     }
   }
 }

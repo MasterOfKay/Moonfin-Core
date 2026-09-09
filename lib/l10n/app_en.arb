@@ -16,6 +16,18 @@
   "@animeMarkerAnimeCanon": {
     "description": "Badge on an anime episode that is not in the source manga but is part of the anime's own continuity"
   },
+  "animeMarkerSubbed": "Subbed",
+  "@animeMarkerSubbed": {
+    "description": "Badge on an anime episode or season whose only audio is Japanese, so it is watched with subtitles"
+  },
+  "animeMarkerDubbed": "Dubbed",
+  "@animeMarkerDubbed": {
+    "description": "Badge on an anime episode or season that has an audio track in a language other than Japanese"
+  },
+  "animeMarkerPending": "Pending",
+  "@animeMarkerPending": {
+    "description": "Badge on an anime episode whose filler information the server has matched but not downloaded yet"
+  },
   "animeMarkerRecap": "Recap",
   "@animeMarkerRecap": {
     "description": "Badge on an anime episode that recaps earlier episodes"

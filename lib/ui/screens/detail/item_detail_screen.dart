@@ -13201,6 +13201,15 @@ class DetailSeasonsRow extends StatelessWidget {
                   left: 6,
                   child: SeerrStatusDot(status: seerrStatus, size: 18),
                 ),
+              Positioned(
+                top: 6,
+                right: 6,
+                child: AnimeSeasonAudioBadge(
+                  seriesId: season.seriesId,
+                  seasonId: season.id,
+                  scale: 0.85,
+                ),
+              ),
             ],
             focusColor: isNeon
                 ? AppColorScheme.accent

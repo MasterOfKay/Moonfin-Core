@@ -5,10 +5,12 @@ import 'package:moonfin_design/moonfin_design.dart';
 import '../../data/repositories/anime_marker_repository.dart';
 import '../../l10n/app_localizations.dart';
 
-/// Pill rendering for a epsiode card.
-const bool kAnimeMarkerDebug = true;
+/// Debug Pill to see what it resposnds for each epsiode.
+const bool kAnimeMarkerDebug = false;
 
-/// A badge for an episode card that shows whether the episode is filler, recap, or anime canon.
+/// A badge for an episode card, shown only when there is something worth warning about:
+/// filler, mixed canon/filler, or a recap. Everything else renders nothing at all, so a
+/// mixed library of anime and ordinary shows is untouched outside the anime that matched.
 class AnimeMarkerBadge extends StatefulWidget {
   final String? seriesId;
   final String episodeId;
@@ -33,6 +35,7 @@ class AnimeMarkerBadge extends StatefulWidget {
 
 class _AnimeMarkerBadgeState extends State<AnimeMarkerBadge> {
   AnimeEpisodeMarker? _marker;
+  bool _pending = false;
   String? _debugReason;
 
   void _note(String reason) {
@@ -60,6 +63,7 @@ class _AnimeMarkerBadgeState extends State<AnimeMarkerBadge> {
     if (oldWidget.episodeId != widget.episodeId ||
         oldWidget.seriesId != widget.seriesId) {
       _marker = null;
+      _pending = false;
       _load();
     }
   }
@@ -89,6 +93,7 @@ class _AnimeMarkerBadgeState extends State<AnimeMarkerBadge> {
     // Already looked up and this episode carries no marker, or the plugin is unavailable.
     if (repository.isResolved(seriesId)) {
       _note('resolved:${repository.lastDiagnostic ?? "no-marker"}');
+      _pending = repository.isPending(seriesId);
       return;
     }
 
@@ -102,6 +107,9 @@ class _AnimeMarkerBadgeState extends State<AnimeMarkerBadge> {
     );
     if (resolved == null) {
       _note(repository.lastDiagnostic ?? 'no-marker');
+      if (repository.isPending(seriesId)) {
+        setState(() => _pending = true);
+      }
       return;
     }
 
@@ -110,7 +118,10 @@ class _AnimeMarkerBadgeState extends State<AnimeMarkerBadge> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final scale = widget.scale;
     final marker = _marker;
+
     if (marker == null || !marker.isNoteworthy) {
       if (kAnimeMarkerDebug && _debugReason != null) {
         return Padding(
@@ -122,11 +133,22 @@ class _AnimeMarkerBadgeState extends State<AnimeMarkerBadge> {
           ),
         );
       }
+
+      // The server knows this show but has not fetched its table yet, so markers really are
+      // on the way. A series that matched nothing is not pending and stays silent.
+      if (_pending) {
+        return Padding(
+          padding: widget.padding,
+          child: _Pill(
+            label: l10n.animeMarkerPending,
+            color: const Color(0xFF8B949E),
+            scale: scale,
+          ),
+        );
+      }
+
       return const SizedBox.shrink();
     }
-
-    final l10n = AppLocalizations.of(context);
-    final scale = widget.scale;
 
     return Padding(
       padding: widget.padding,
@@ -145,14 +167,12 @@ class _AnimeMarkerBadgeState extends State<AnimeMarkerBadge> {
               color: const Color(0xFFD29922),
               scale: scale,
             ),
-            AnimeEpisodeKind.animeCanon => _Pill(
-              label: l10n.animeMarkerAnimeCanon,
-              color: const Color(0xFF3FB950),
-              scale: scale,
-            ),
-            // Manga canon is the ordinary case and is filtered out by
-            // isNoteworthy, but a recap can still carry it here.
+            // Both canon kinds are not noteworthy, so neither gets a pill. They stay
+            // reachable because the episode may still be a recap or carry a dub.
+            AnimeEpisodeKind.animeCanon ||
             AnimeEpisodeKind.mangaCanon => const SizedBox.shrink(),
+            // The show is not on AnimeFillerList; only the audio verdict applies.
+            null => const SizedBox.shrink(),
           },
           if (marker.recap)
             _Pill(
@@ -160,8 +180,108 @@ class _AnimeMarkerBadgeState extends State<AnimeMarkerBadge> {
               color: const Color(0xFFFFA726),
               scale: scale,
             ),
+          if (marker.audio case final audio?) animeAudioPill(l10n, audio, scale),
         ],
       ),
+    );
+  }
+}
+
+/// The subbed/dubbed pill, shared by the episode badge and the season badge.
+Widget animeAudioPill(AppLocalizations l10n, AnimeAudioKind audio, double scale) {
+  return switch (audio) {
+    AnimeAudioKind.subbed => _Pill(
+      label: l10n.animeMarkerSubbed,
+      color: const Color(0xFF58A6FF),
+      scale: scale,
+    ),
+    AnimeAudioKind.dubbed => _Pill(
+      label: l10n.animeMarkerDubbed,
+      color: const Color(0xFF3FB950),
+      scale: scale,
+    ),
+  };
+}
+
+/// A subbed/dubbed pill for a whole season, for the season list.
+///
+/// Shows nothing unless every episode in the season agreed, so a season holding both a dub
+/// and a sub stays blank.
+class AnimeSeasonAudioBadge extends StatefulWidget {
+  final String? seriesId;
+  final String seasonId;
+  final double scale;
+  final EdgeInsetsGeometry padding;
+
+  const AnimeSeasonAudioBadge({
+    super.key,
+    required this.seriesId,
+    required this.seasonId,
+    this.scale = 1.0,
+    this.padding = EdgeInsets.zero,
+  });
+
+  @override
+  State<AnimeSeasonAudioBadge> createState() => _AnimeSeasonAudioBadgeState();
+}
+
+class _AnimeSeasonAudioBadgeState extends State<AnimeSeasonAudioBadge> {
+  AnimeAudioKind? _audio;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  @override
+  void didUpdateWidget(AnimeSeasonAudioBadge oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.seasonId != widget.seasonId ||
+        oldWidget.seriesId != widget.seriesId) {
+      _audio = null;
+      _load();
+    }
+  }
+
+  Future<void> _load() async {
+    final seriesId = widget.seriesId;
+    if (seriesId == null || seriesId.isEmpty) return;
+    if (!GetIt.instance.isRegistered<AnimeMarkerRepository>()) return;
+
+    final repository = GetIt.instance<AnimeMarkerRepository>();
+
+    final cached = repository.peekSeason(
+      seriesId: seriesId,
+      seasonId: widget.seasonId,
+    );
+    if (cached != null) {
+      _audio = cached;
+      return;
+    }
+
+    if (repository.isResolved(seriesId)) return;
+
+    await repository.getForSeries(seriesId);
+    if (!mounted) return;
+
+    final resolved = repository.peekSeason(
+      seriesId: seriesId,
+      seasonId: widget.seasonId,
+    );
+    if (resolved == null) return;
+
+    setState(() => _audio = resolved);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final audio = _audio;
+    if (audio == null) return const SizedBox.shrink();
+
+    return Padding(
+      padding: widget.padding,
+      child: animeAudioPill(AppLocalizations.of(context), audio, widget.scale),
     );
   }
 }
