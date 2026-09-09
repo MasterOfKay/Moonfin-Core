@@ -3995,6 +3995,7 @@ class _HeaderSection extends StatelessWidget {
                       ),
                     ),
                   ),
+                AnimeMarkerBadge(seriesId: item.seriesId, episodeId: item.id),
               ],
             ),
           ),

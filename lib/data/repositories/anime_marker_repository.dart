@@ -73,8 +73,15 @@ class AnimeMarkerRepository {
     required String seriesId,
     required String episodeId,
   }) {
-    return _cache[seriesId]?[episodeId.toLowerCase()];
+    return _cache[seriesId]?[_normalizeId(episodeId)];
   }
+
+  /// Normalizes an episode ID to the form used in the plugin's JSON. The plugin
+  /// uses the same normalization as the AniList API, which is to remove hyphens
+  /// and lowercase the rest. The plugin does not normalize series IDs, so they
+  /// are used as-is.
+  static String _normalizeId(String id) =>
+      id.replaceAll('-', '').toLowerCase();
 
   /// True once a series has been looked up, successfully or not, so a card can
   /// tell "no marker for this episode" apart from "not asked yet".
@@ -161,7 +168,7 @@ class AnimeMarkerRepository {
           final kind = AnimeEpisodeMarker._parseKind(value['kind']);
           if (kind == null) return;
 
-          markers[key.toLowerCase()] = AnimeEpisodeMarker(
+          markers[_normalizeId(key)] = AnimeEpisodeMarker(
             kind: kind,
             recap: value['recap'] == true,
           );
