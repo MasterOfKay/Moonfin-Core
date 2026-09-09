@@ -14057,33 +14057,29 @@ class DetailEpisodeCardState extends State<DetailEpisodeCard>
                               ),
                               if (runtimeText != null) ...[
                                 const SizedBox(height: 2),
-                                // The runtime and the pills share a row so they can sit
-                                // side by side; the row collapses to just the runtime when
-                                // another placement is chosen, because the badge renders
-                                // nothing at all rather than an empty box.
+                                // The runtime and the beside badge are in a row 
+                                // so that the badge is always aligned with the runtime text, 
+                                // even if the text wraps to two lines.
                                 Row(
                                   crossAxisAlignment: CrossAxisAlignment.center,
                                   children: [
-                                    Flexible(
-                                      child: Text(
-                                        runtimeText,
-                                        style: Theme.of(context)
-                                            .textTheme
-                                            .bodySmall
-                                            ?.copyWith(
-                                              color: AppColorScheme.onSurface
-                                                  .withValues(alpha: 0.8),
-                                            ),
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
+                                    Text(
+                                      runtimeText,
+                                      style: Theme.of(context).textTheme.bodySmall
+                                          ?.copyWith(
+                                            color: AppColorScheme.onSurface
+                                                .withValues(alpha: 0.8),
+                                          ),
+                                      maxLines: 1,
                                     ),
-                                    AnimeMarkerBadge(
-                                      seriesId: episode.seriesId,
-                                      episodeId: episode.id,
-                                      scale: desktopScale,
-                                      slot: AnimeMarkerPlacement.beside,
-                                      padding: const EdgeInsets.only(left: 8),
+                                    Flexible(
+                                      child: AnimeMarkerBadge(
+                                        seriesId: episode.seriesId,
+                                        episodeId: episode.id,
+                                        scale: desktopScale,
+                                        slot: AnimeMarkerPlacement.beside,
+                                        padding: const EdgeInsets.only(left: 8),
+                                      ),
                                     ),
                                   ],
                                 ),
