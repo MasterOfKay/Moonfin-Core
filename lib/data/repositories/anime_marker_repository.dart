@@ -34,11 +34,8 @@ class AnimeEpisodeMarker {
   ///
   /// Noteworthy episodes are those that are filler, mixed, recaps, or have a subbed/dubbed verdict. 
   /// Canon episodes with no audio verdict are not noteworthy.
-  bool get isNoteworthy =>
-      recap ||
-      audio != null ||
-      kind == AnimeEpisodeKind.filler ||
-      kind == AnimeEpisodeKind.mixed;
+
+  bool get isNoteworthy => recap || audio != null || kind != null;
 
   static AnimeEpisodeKind? _parseKind(Object? raw) {
     switch (raw) {
@@ -89,6 +86,18 @@ class AnimeMarkerRepository {
   /// Season id to its verdict, for the season list. Only seasons whose episodes all agreed
   /// are in here, so a season holding both a dub and a sub simply has no entry.
   final _seasonAudio = <String, Map<String, AnimeAudioKind>>{};
+
+  /// Item id to its verdict, for the home screen. Only items whose episodes all agreed
+  /// are in here, so a show holding both a dub and a sub simply has no entry.
+  final _itemAudio = <String, AnimeAudioKind?>{};
+
+  /// Item ids already asked about, so a card that came back with nothing does not ask
+  /// again on every rebuild.
+  final _itemAsked = <String>{};
+
+  final _pendingItemBatch = <String>{};
+  Timer? _itemBatchTimer;
+  final _itemBatchWaiters = <Completer<void>>[];
 
   final _cache = <String, Map<String, AnimeEpisodeMarker>>{};
   final _pending = <String, Completer<Map<String, AnimeEpisodeMarker>?>>{};
@@ -278,15 +287,97 @@ class AnimeMarkerRepository {
     }
   }
 
+  /// The verdict for a standalone item if it has already been fetched, or null.
+  AnimeAudioKind? peekItem(String itemId) => _itemAudio[_normalizeId(itemId)];
+
+  /// True once an item has been asked about, so a card can tell "no verdict" apart from
+  /// "not asked yet".
+  bool isItemResolved(String itemId) => _itemAsked.contains(_normalizeId(itemId));
+
+  /// Gets the verdict for a standalone item, or null if it has no noteworthy episodes. The
+  /// result is cached in memory so a card can render from cache without starting a request.
+  /// Cards ask in batches, so this is keyed by item rather than by series.
+  Future<AnimeAudioKind?> getForItem(String itemId) async {
+    final normalized = _normalizeId(itemId);
+    if (normalized.isEmpty) return null;
+
+    if (_itemAsked.contains(normalized)) {
+      return _itemAudio[normalized];
+    }
+
+    _pendingItemBatch.add(normalized);
+
+    final waiter = Completer<void>();
+    _itemBatchWaiters.add(waiter);
+
+    _itemBatchTimer?.cancel();
+    _itemBatchTimer = Timer(const Duration(milliseconds: 60), _flushItemBatch);
+
+    await waiter.future;
+    return _itemAudio[normalized];
+  }
+
+  Future<void> _flushItemBatch() async {
+    final ids = _pendingItemBatch.toList();
+    final waiters = List<Completer<void>>.from(_itemBatchWaiters);
+    _pendingItemBatch.clear();
+    _itemBatchWaiters.clear();
+
+    void release() {
+      for (final waiter in waiters) {
+        if (!waiter.isCompleted) waiter.complete();
+      }
+    }
+
+    if (ids.isEmpty) {
+      release();
+      return;
+    }
+
+    try {
+      final token = _client.accessToken;
+      final baseUrl = _client.baseUrl;
+      if (token == null || baseUrl.isEmpty) {
+        release();
+        return;
+      }
+
+      final response = await _dio.get(
+        '$baseUrl/Moonfin/AnimeMarkers/Items',
+        queryParameters: {'ids': ids.join(',')},
+        options: Options(
+          headers: {'Authorization': 'MediaBrowser Token="$token"'},
+        ),
+      );
+
+      final data = response.data;
+      if (data is Map<String, dynamic> && data['items'] is Map) {
+        (data['items'] as Map).forEach((key, value) {
+          if (key is! String || value is! Map) return;
+          _itemAudio[_normalizeId(key)] = parseAnimeAudioKind(value['audio']);
+        });
+      }
+
+      _itemAsked.addAll(ids);
+    } catch (_) {
+      // Left unasked so it is retried, rather than remembered as having no verdict.
+    } finally {
+      release();
+    }
+  }
+
   void clearCache() {
     _cache.clear();
     _seasonAudio.clear();
+    _itemAudio.clear();
+    _itemAsked.clear();
     _negativeCache.clear();
     _pendingSeries.clear();
     _unavailableSince = null;
   }
 
   void dispose() {
+    _itemBatchTimer?.cancel();
     clearCache();
     _dio.close(force: true);
   }

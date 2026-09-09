@@ -167,10 +167,16 @@ class _AnimeMarkerBadgeState extends State<AnimeMarkerBadge> {
               color: const Color(0xFFD29922),
               scale: scale,
             ),
-            // Both canon kinds are not noteworthy, so neither gets a pill. They stay
-            // reachable because the episode may still be a recap or carry a dub.
-            AnimeEpisodeKind.animeCanon ||
-            AnimeEpisodeKind.mangaCanon => const SizedBox.shrink(),
+            AnimeEpisodeKind.animeCanon => _Pill(
+              label: l10n.animeMarkerAnimeCanon,
+              color: const Color(0xFF3FB950),
+              scale: scale,
+            ),
+            AnimeEpisodeKind.mangaCanon => _Pill(
+              label: l10n.animeMarkerMangaCanon,
+              color: const Color(0xFF58A6FF),
+              scale: scale,
+            ),
             // The show is not on AnimeFillerList; only the audio verdict applies.
             null => const SizedBox.shrink(),
           },
@@ -188,17 +194,24 @@ class _AnimeMarkerBadgeState extends State<AnimeMarkerBadge> {
 }
 
 /// The subbed/dubbed pill, shared by the episode badge and the season badge.
-Widget animeAudioPill(AppLocalizations l10n, AnimeAudioKind audio, double scale) {
+Widget animeAudioPill(
+  AppLocalizations l10n,
+  AnimeAudioKind audio,
+  double scale, {
+  bool filled = false,
+}) {
   return switch (audio) {
     AnimeAudioKind.subbed => _Pill(
       label: l10n.animeMarkerSubbed,
-      color: const Color(0xFF58A6FF),
+      color: const Color(0xFF1F6FEB),
       scale: scale,
+      filled: filled,
     ),
     AnimeAudioKind.dubbed => _Pill(
       label: l10n.animeMarkerDubbed,
-      color: const Color(0xFF3FB950),
+      color: const Color(0xFF238636),
       scale: scale,
+      filled: filled,
     ),
   };
 }
@@ -281,7 +294,85 @@ class _AnimeSeasonAudioBadgeState extends State<AnimeSeasonAudioBadge> {
 
     return Padding(
       padding: widget.padding,
-      child: animeAudioPill(AppLocalizations.of(context), audio, widget.scale),
+      child: animeAudioPill(
+        AppLocalizations.of(context),
+        audio,
+        widget.scale,
+        filled: true,
+      ),
+    );
+  }
+}
+
+/// A subbed/dubbed pill for a standalone item, for movie cards and home screen rows.
+class AnimeItemAudioBadge extends StatefulWidget {
+  final String itemId;
+  final double scale;
+  final EdgeInsetsGeometry padding;
+
+  /// Solid fill, for when the pill sits on top of artwork.
+  final bool filled;
+
+  const AnimeItemAudioBadge({
+    super.key,
+    required this.itemId,
+    this.scale = 1.0,
+    this.padding = EdgeInsets.zero,
+    this.filled = true,
+  });
+
+  @override
+  State<AnimeItemAudioBadge> createState() => _AnimeItemAudioBadgeState();
+}
+
+class _AnimeItemAudioBadgeState extends State<AnimeItemAudioBadge> {
+  AnimeAudioKind? _audio;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  @override
+  void didUpdateWidget(AnimeItemAudioBadge oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.itemId != widget.itemId) {
+      _audio = null;
+      _load();
+    }
+  }
+
+  Future<void> _load() async {
+    if (widget.itemId.isEmpty) return;
+    if (!GetIt.instance.isRegistered<AnimeMarkerRepository>()) return;
+
+    final repository = GetIt.instance<AnimeMarkerRepository>();
+
+    if (repository.isItemResolved(widget.itemId)) {
+      _audio = repository.peekItem(widget.itemId);
+      return;
+    }
+
+    final resolved = await repository.getForItem(widget.itemId);
+    if (!mounted || resolved == null) return;
+
+    setState(() => _audio = resolved);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final audio = _audio;
+    if (audio == null) return const SizedBox.shrink();
+
+    return Padding(
+      padding: widget.padding,
+      child: animeAudioPill(
+        AppLocalizations.of(context),
+        audio,
+        widget.scale,
+        filled: widget.filled,
+      ),
     );
   }
 }
@@ -291,21 +382,42 @@ class _Pill extends StatelessWidget {
   final Color color;
   final double scale;
 
-  const _Pill({required this.label, required this.color, required this.scale});
+  /// Whether the pill is filled with color or just an outline. 
+  /// The outline is for when the pill sits on a light background, 
+  /// and the fill is for when it sits on top of artwork.
+  final bool filled;
+
+  const _Pill({
+    required this.label,
+    required this.color,
+    required this.scale,
+    this.filled = false,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: EdgeInsets.symmetric(horizontal: 6 * scale, vertical: 2 * scale),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.18),
+        color: filled ? color : color.withValues(alpha: 0.18),
         borderRadius: AppRadius.circular(4 * scale),
-        border: Border.all(color: color.withValues(alpha: 0.7), width: 1),
+        border: filled
+            ? null
+            : Border.all(color: color.withValues(alpha: 0.7), width: 1),
+        boxShadow: filled
+            ? [
+                BoxShadow(
+                  color: AppColors.black.withValues(alpha: 0.35),
+                  blurRadius: 4,
+                  offset: const Offset(0, 1),
+                ),
+              ]
+            : null,
       ),
       child: Text(
         label.toUpperCase(),
         style: TextStyle(
-          color: color,
+          color: filled ? Colors.white : color,
           fontSize: 10 * scale,
           fontWeight: FontWeight.w700,
           letterSpacing: 0.5,

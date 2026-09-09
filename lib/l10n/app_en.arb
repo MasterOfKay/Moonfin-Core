@@ -16,6 +16,10 @@
   "@animeMarkerAnimeCanon": {
     "description": "Badge on an anime episode that is not in the source manga but is part of the anime's own continuity"
   },
+  "animeMarkerMangaCanon": "Manga Canon",
+  "@animeMarkerMangaCanon": {
+    "description": "Badge on an anime episode adapted from the source manga"
+  },
   "animeMarkerSubbed": "Subbed",
   "@animeMarkerSubbed": {
     "description": "Badge on an anime episode or season whose only audio is Japanese, so it is watched with subtitles"

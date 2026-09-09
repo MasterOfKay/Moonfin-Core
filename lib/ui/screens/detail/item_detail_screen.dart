@@ -13201,9 +13201,11 @@ class DetailSeasonsRow extends StatelessWidget {
                   left: 6,
                   child: SeerrStatusDot(status: seerrStatus, size: 18),
                 ),
+              // Top left, dropped below the Seerr dot when there is one so the two stack
+              // rather than overlap.
               Positioned(
-                top: 6,
-                right: 6,
+                top: hasSeerrDot ? 30 : 6,
+                left: 6,
                 child: AnimeSeasonAudioBadge(
                   seriesId: season.seriesId,
                   seasonId: season.id,
@@ -13761,6 +13763,13 @@ class DetailNextUpCardState extends State<DetailNextUpCard>
                                   ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
+                            ),
+                            // The next episode is the one someone is about to start, so
+                            // whether it is filler belongs here as much as in the list.
+                            AnimeMarkerBadge(
+                              seriesId: episode.seriesId,
+                              episodeId: episode.id,
+                              padding: const EdgeInsets.only(top: 4),
                             ),
                             if (_showsEpisodeOverview(episode, prefs)) ...[
                               const SizedBox(height: 4),

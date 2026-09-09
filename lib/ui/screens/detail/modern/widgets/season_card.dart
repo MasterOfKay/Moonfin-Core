@@ -114,7 +114,14 @@ class SeasonCard extends StatelessWidget {
                   left: 6,
                   child: SeerrStatusDot(status: seerrStatus, size: 18),
                 ),
-              if (badge != null) Positioned(top: 6, right: 6, child: badge!),
+              // Top left, dropped below the Seerr dot when there is one so the two stack
+              // rather than overlap.
+              if (badge != null)
+                Positioned(
+                  top: SeerrMediaStatus.hasDot(seerrStatus) ? 30 : 6,
+                  left: 6,
+                  child: badge!,
+                ),
               Positioned(
                 left: 8,
                 right: 8,
