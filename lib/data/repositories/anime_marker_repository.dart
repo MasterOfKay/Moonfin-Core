@@ -7,12 +7,21 @@ import 'package:server_core/server_core.dart';
 enum AnimeEpisodeKind { mangaCanon, animeCanon, mixed, filler }
 
 /// Whether a file carries only the original Japanese audio, or a dub.
-enum AnimeAudioKind { subbed, dubbed }
+enum AnimeAudioKind { subbed, dubbed, subbedAndDubbed }
 
 AnimeAudioKind? parseAnimeAudioKind(Object? raw) => switch (raw) {
   'Subbed' => AnimeAudioKind.subbed,
   'Dubbed' => AnimeAudioKind.dubbed,
+  'SubbedAndDubbed' => AnimeAudioKind.subbedAndDubbed,
   _ => null,
+};
+
+enum AnimeMarkerPlacement { below, beside, thumbnail }
+
+AnimeMarkerPlacement parseAnimeMarkerPlacement(Object? raw) => switch (raw) {
+  'beside' => AnimeMarkerPlacement.beside,
+  'thumbnail' => AnimeMarkerPlacement.thumbnail,
+  _ => AnimeMarkerPlacement.below,
 };
 
 /// The marker for a single episode.
@@ -77,6 +86,8 @@ class AnimeMarkerRepository {
   );
 
   String? lastDiagnostic;
+
+  AnimeMarkerPlacement placement = AnimeMarkerPlacement.below;
 
   /// Series IDs that have been asked for but returned no markers yet. 
   /// This is not a cache: the plugin will eventually fetch the table and return a real verdict, 
@@ -244,6 +255,8 @@ class AnimeMarkerRepository {
         });
       }
 
+      placement = parseAnimeMarkerPlacement(data['placement']);
+
       final rawSeasons = data['seasons'];
       final seasons = <String, AnimeAudioKind>{};
 
@@ -351,6 +364,10 @@ class AnimeMarkerRepository {
       );
 
       final data = response.data;
+      if (data is Map<String, dynamic>) {
+        placement = parseAnimeMarkerPlacement(data['placement']);
+      }
+
       if (data is Map<String, dynamic> && data['items'] is Map) {
         (data['items'] as Map).forEach((key, value) {
           if (key is! String || value is! Map) return;

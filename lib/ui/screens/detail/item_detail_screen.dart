@@ -4,6 +4,7 @@ import 'dart:ui';
 import '../../widgets/bounded_network_image.dart';
 import '../../widgets/offline_aware_image.dart';
 import '../../widgets/anime_marker_badge.dart';
+import '../../../data/repositories/anime_marker_repository.dart';
 import '../../widgets/identify_dialog.dart';
 import '../../widgets/focus/context_action.dart' show canIdentifyItemType;
 
@@ -14001,6 +14002,19 @@ class DetailEpisodeCardState extends State<DetailEpisodeCard>
                                 _EpisodeProgressBar(
                                   percentage: episode.playedPercentage!,
                                 ),
+                              // Top left, opposite the played tick and above the progress
+                              // bar. Draws only when the server picked this placement.
+                              Positioned(
+                                top: 6,
+                                left: 6,
+                                child: AnimeMarkerBadge(
+                                  seriesId: episode.seriesId,
+                                  episodeId: episode.id,
+                                  scale: 0.8,
+                                  slot: AnimeMarkerPlacement.thumbnail,
+                                  filled: true,
+                                ),
+                              ),
                               if (episode.isPlayed)
                                 Positioned(
                                   top: 6,
@@ -14043,19 +14057,42 @@ class DetailEpisodeCardState extends State<DetailEpisodeCard>
                               ),
                               if (runtimeText != null) ...[
                                 const SizedBox(height: 2),
-                                Text(
-                                  runtimeText,
-                                  style: Theme.of(context).textTheme.bodySmall
-                                      ?.copyWith(
-                                        color: AppColorScheme.onSurface
-                                            .withValues(alpha: 0.8),
+                                // The runtime and the pills share a row so they can sit
+                                // side by side; the row collapses to just the runtime when
+                                // another placement is chosen, because the badge renders
+                                // nothing at all rather than an empty box.
+                                Row(
+                                  crossAxisAlignment: CrossAxisAlignment.center,
+                                  children: [
+                                    Flexible(
+                                      child: Text(
+                                        runtimeText,
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .bodySmall
+                                            ?.copyWith(
+                                              color: AppColorScheme.onSurface
+                                                  .withValues(alpha: 0.8),
+                                            ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
                                       ),
+                                    ),
+                                    AnimeMarkerBadge(
+                                      seriesId: episode.seriesId,
+                                      episodeId: episode.id,
+                                      scale: desktopScale,
+                                      slot: AnimeMarkerPlacement.beside,
+                                      padding: const EdgeInsets.only(left: 8),
+                                    ),
+                                  ],
                                 ),
                               ],
                               AnimeMarkerBadge(
                                 seriesId: episode.seriesId,
                                 episodeId: episode.id,
                                 scale: desktopScale,
+                                slot: AnimeMarkerPlacement.below,
                                 padding: const EdgeInsets.only(top: 4),
                               ),
                               if (_showsEpisodeOverview(episode, prefs)) ...[

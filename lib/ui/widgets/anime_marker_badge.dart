@@ -21,12 +21,22 @@ class AnimeMarkerBadge extends StatefulWidget {
   /// Applied only when a pill actually renders, so an episode with no marker.
   final EdgeInsetsGeometry padding;
 
+  /// The server's preferred placement for the pill, when it has one. If the server
+  /// has not yet responded, or the server does not know where to put it, the
+  /// badge falls back to the layout that always fits.
+  final AnimeMarkerPlacement? slot;
+
+  /// Solid pills with white text, for when the badge sits over artwork.
+  final bool filled;
+
   const AnimeMarkerBadge({
     super.key,
     required this.seriesId,
     required this.episodeId,
     this.scale = 1.0,
     this.padding = EdgeInsets.zero,
+    this.slot,
+    this.filled = false,
   });
 
   @override
@@ -118,6 +128,12 @@ class _AnimeMarkerBadgeState extends State<AnimeMarkerBadge> {
 
   @override
   Widget build(BuildContext context) {
+    if (widget.slot != null &&
+        GetIt.instance.isRegistered<AnimeMarkerRepository>() &&
+        GetIt.instance<AnimeMarkerRepository>().placement != widget.slot) {
+      return const SizedBox.shrink();
+    }
+
     final l10n = AppLocalizations.of(context);
     final scale = widget.scale;
     final marker = _marker;
@@ -150,44 +166,53 @@ class _AnimeMarkerBadgeState extends State<AnimeMarkerBadge> {
       return const SizedBox.shrink();
     }
 
+    final pills = <Widget>[
+      if (marker.kind case final kind?)
+        switch (kind) {
+          AnimeEpisodeKind.filler => _Pill(
+            label: l10n.animeMarkerFiller,
+            color: const Color(0xFFE53935),
+            scale: scale,
+            filled: widget.filled,
+          ),
+          AnimeEpisodeKind.mixed => _Pill(
+            label: l10n.animeMarkerMixed,
+            color: const Color(0xFFD29922),
+            scale: scale,
+            filled: widget.filled,
+          ),
+          AnimeEpisodeKind.animeCanon => _Pill(
+            label: l10n.animeMarkerAnimeCanon,
+            color: const Color(0xFF3FB950),
+            scale: scale,
+            filled: widget.filled,
+          ),
+          AnimeEpisodeKind.mangaCanon => _Pill(
+            label: l10n.animeMarkerMangaCanon,
+            color: const Color(0xFF58A6FF),
+            scale: scale,
+            filled: widget.filled,
+          ),
+        },
+      if (marker.recap)
+        _Pill(
+          label: l10n.animeMarkerRecap,
+          color: const Color(0xFFFFA726),
+          scale: scale,
+          filled: widget.filled,
+        ),
+      if (marker.audio case final audio?)
+        animeAudioPill(l10n, audio, scale, filled: widget.filled),
+    ];
+
+    if (pills.isEmpty) return const SizedBox.shrink();
+
     return Padding(
       padding: widget.padding,
       child: Wrap(
         spacing: 4 * scale,
         runSpacing: 2 * scale,
-        children: [
-          switch (marker.kind) {
-            AnimeEpisodeKind.filler => _Pill(
-              label: l10n.animeMarkerFiller,
-              color: const Color(0xFFE53935),
-              scale: scale,
-            ),
-            AnimeEpisodeKind.mixed => _Pill(
-              label: l10n.animeMarkerMixed,
-              color: const Color(0xFFD29922),
-              scale: scale,
-            ),
-            AnimeEpisodeKind.animeCanon => _Pill(
-              label: l10n.animeMarkerAnimeCanon,
-              color: const Color(0xFF3FB950),
-              scale: scale,
-            ),
-            AnimeEpisodeKind.mangaCanon => _Pill(
-              label: l10n.animeMarkerMangaCanon,
-              color: const Color(0xFF58A6FF),
-              scale: scale,
-            ),
-            // The show is not on AnimeFillerList; only the audio verdict applies.
-            null => const SizedBox.shrink(),
-          },
-          if (marker.recap)
-            _Pill(
-              label: l10n.animeMarkerRecap,
-              color: const Color(0xFFFFA726),
-              scale: scale,
-            ),
-          if (marker.audio case final audio?) animeAudioPill(l10n, audio, scale),
-        ],
+        children: pills,
       ),
     );
   }
@@ -210,6 +235,12 @@ Widget animeAudioPill(
     AnimeAudioKind.dubbed => _Pill(
       label: l10n.animeMarkerDubbed,
       color: const Color(0xFF238636),
+      scale: scale,
+      filled: filled,
+    ),
+    AnimeAudioKind.subbedAndDubbed => _Pill(
+      label: l10n.animeMarkerSubbedAndDubbed,
+      color: const Color(0xFF8957E5),
       scale: scale,
       filled: filled,
     ),
