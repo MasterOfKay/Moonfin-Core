@@ -60,6 +60,8 @@ class AnimeMarkerRepository {
     ),
   );
 
+  String? lastDiagnostic;
+
   final _cache = <String, Map<String, AnimeEpisodeMarker>>{};
   final _pending = <String, Completer<Map<String, AnimeEpisodeMarker>?>>{};
   final _negativeCache = <String, DateTime>{};
@@ -127,11 +129,19 @@ class AnimeMarkerRepository {
     }
 
     try {
+      final baseUrl = _client.baseUrl;
       final token = _client.accessToken;
-      if (token == null) return completeWith(null);
+      if (token == null) {
+        lastDiagnostic = 'no-token';
+        return completeWith(null);
+      }
+      if (baseUrl.isEmpty) {
+        lastDiagnostic = 'no-base-url';
+        return completeWith(null);
+      }
 
       final response = await _dio.get(
-        '${_client.baseUrl}/Moonfin/AnimeMarkers/Series',
+        '$baseUrl/Moonfin/AnimeMarkers/Series',
         queryParameters: {'seriesId': seriesId},
         options: Options(
           headers: {'Authorization': 'MediaBrowser Token="$token"'},
@@ -140,6 +150,7 @@ class AnimeMarkerRepository {
 
       final data = response.data;
       if (data is! Map<String, dynamic>) {
+        lastDiagnostic = 'bad-response';
         _negativeCache[seriesId] = DateTime.now();
         return completeWith(null);
       }
@@ -147,6 +158,7 @@ class AnimeMarkerRepository {
       // The admin can switch the feature off server-wide. Cache the empty
       // result so cards stop asking rather than retrying on every series.
       if (data['enabled'] != true) {
+        lastDiagnostic = 'server-disabled';
         _storeCacheEntry(seriesId, const {});
         return completeWith(const {});
       }
@@ -154,6 +166,7 @@ class AnimeMarkerRepository {
       // Matched but not fetched yet: the nightly task has not reached this show.
       // Not cached, because it becomes available without anything changing here.
       if (data['pending'] == true) {
+        lastDiagnostic = 'server-pending';
         _negativeCache[seriesId] = DateTime.now();
         return completeWith(null);
       }
@@ -175,6 +188,7 @@ class AnimeMarkerRepository {
         });
       }
 
+      lastDiagnostic = markers.isEmpty ? 'server-sent-none' : 'ok-${markers.length}';
       _storeCacheEntry(seriesId, markers);
       return completeWith(markers);
     } on DioException catch (e) {
@@ -183,15 +197,19 @@ class AnimeMarkerRepository {
         final answeredByPlugin = body is Map && body['error'] != null;
 
         if (answeredByPlugin) {
+          lastDiagnostic = 'series-404';
           _negativeCache[seriesId] = DateTime.now();
         } else {
+          lastDiagnostic = 'route-404';
           _unavailableSince = DateTime.now();
         }
       } else {
+        lastDiagnostic = 'http-${e.response?.statusCode ?? e.type.name}';
         _negativeCache[seriesId] = DateTime.now();
       }
       return completeWith(null);
-    } catch (_) {
+    } catch (error) {
+      lastDiagnostic = 'error-${error.runtimeType}';
       _negativeCache[seriesId] = DateTime.now();
       return completeWith(null);
     }

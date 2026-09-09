@@ -5,6 +5,9 @@ import 'package:moonfin_design/moonfin_design.dart';
 import '../../data/repositories/anime_marker_repository.dart';
 import '../../l10n/app_localizations.dart';
 
+/// Pill rendering for a epsiode card.
+const bool kAnimeMarkerDebug = true;
+
 /// A badge for an episode card that shows whether the episode is filler, recap, or anime canon.
 class AnimeMarkerBadge extends StatefulWidget {
   final String? seriesId;
@@ -30,6 +33,18 @@ class AnimeMarkerBadge extends StatefulWidget {
 
 class _AnimeMarkerBadgeState extends State<AnimeMarkerBadge> {
   AnimeEpisodeMarker? _marker;
+  String? _debugReason;
+
+  void _note(String reason) {
+    if (!kAnimeMarkerDebug) return;
+
+    _debugReason = reason;
+    if (!mounted) return;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) setState(() {});
+    });
+  }
 
   @override
   void initState() {
@@ -51,9 +66,15 @@ class _AnimeMarkerBadgeState extends State<AnimeMarkerBadge> {
 
   Future<void> _load() async {
     final seriesId = widget.seriesId;
-    if (seriesId == null || seriesId.isEmpty) return;
+    if (seriesId == null || seriesId.isEmpty) {
+      _note('no-seriesId');
+      return;
+    }
 
-    if (!GetIt.instance.isRegistered<AnimeMarkerRepository>()) return;
+    if (!GetIt.instance.isRegistered<AnimeMarkerRepository>()) {
+      _note('no-repo');
+      return;
+    }
     final repository = GetIt.instance<AnimeMarkerRepository>();
 
     final cached = repository.peek(
@@ -65,8 +86,11 @@ class _AnimeMarkerBadgeState extends State<AnimeMarkerBadge> {
       return;
     }
 
-    // Already looked up and this episode carries no marker, or the plugin is unavailable. No need to ask again.
-    if (repository.isResolved(seriesId)) return;
+    // Already looked up and this episode carries no marker, or the plugin is unavailable.
+    if (repository.isResolved(seriesId)) {
+      _note('resolved:${repository.lastDiagnostic ?? "no-marker"}');
+      return;
+    }
 
     await repository.getForSeries(seriesId);
     if (!mounted) return;
@@ -76,7 +100,10 @@ class _AnimeMarkerBadgeState extends State<AnimeMarkerBadge> {
       seriesId: seriesId,
       episodeId: widget.episodeId,
     );
-    if (resolved == null) return;
+    if (resolved == null) {
+      _note(repository.lastDiagnostic ?? 'no-marker');
+      return;
+    }
 
     setState(() => _marker = resolved);
   }
@@ -85,6 +112,16 @@ class _AnimeMarkerBadgeState extends State<AnimeMarkerBadge> {
   Widget build(BuildContext context) {
     final marker = _marker;
     if (marker == null || !marker.isNoteworthy) {
+      if (kAnimeMarkerDebug && _debugReason != null) {
+        return Padding(
+          padding: widget.padding,
+          child: _Pill(
+            label: _debugReason!,
+            color: const Color(0xFF8B949E),
+            scale: widget.scale,
+          ),
+        );
+      }
       return const SizedBox.shrink();
     }
 
