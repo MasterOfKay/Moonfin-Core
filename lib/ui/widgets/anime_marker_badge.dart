@@ -29,6 +29,12 @@ class AnimeMarkerBadge extends StatefulWidget {
   /// Solid pills with white text, for when the badge sits over artwork.
   final bool filled;
 
+  /// A leading widget that is always shown, even when the server has not yet resolved the
+  /// episode's marker. The pill is only shown when the server has resolved a noteworthy
+  /// marker, so this allows a card to always show something in the corner even when the
+  /// pill is not present.
+  final Widget? leading;
+
   const AnimeMarkerBadge({
     super.key,
     required this.seriesId,
@@ -37,6 +43,7 @@ class AnimeMarkerBadge extends StatefulWidget {
     this.padding = EdgeInsets.zero,
     this.slot,
     this.filled = false,
+    this.leading,
   });
 
   @override
@@ -128,10 +135,12 @@ class _AnimeMarkerBadgeState extends State<AnimeMarkerBadge> {
 
   @override
   Widget build(BuildContext context) {
+    // Standing in a slot the server did not choose. Any leading widget still belongs on
+    // screen; only the pills move elsewhere.
     if (widget.slot != null &&
         GetIt.instance.isRegistered<AnimeMarkerRepository>() &&
         GetIt.instance<AnimeMarkerRepository>().placement != widget.slot) {
-      return const SizedBox.shrink();
+      return widget.leading ?? const SizedBox.shrink();
     }
 
     final l10n = AppLocalizations.of(context);
@@ -163,7 +172,7 @@ class _AnimeMarkerBadgeState extends State<AnimeMarkerBadge> {
         );
       }
 
-      return const SizedBox.shrink();
+      return widget.leading ?? const SizedBox.shrink();
     }
 
     final pills = <Widget>[
@@ -205,14 +214,15 @@ class _AnimeMarkerBadgeState extends State<AnimeMarkerBadge> {
         animeAudioPill(l10n, audio, scale, filled: widget.filled),
     ];
 
-    if (pills.isEmpty) return const SizedBox.shrink();
+    if (pills.isEmpty) return widget.leading ?? const SizedBox.shrink();
 
     return Padding(
       padding: widget.padding,
       child: Wrap(
         spacing: 4 * scale,
         runSpacing: 2 * scale,
-        children: pills,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [?widget.leading, ...pills],
       ),
     );
   }

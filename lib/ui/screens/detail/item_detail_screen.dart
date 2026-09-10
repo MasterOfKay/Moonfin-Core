@@ -14057,31 +14057,22 @@ class DetailEpisodeCardState extends State<DetailEpisodeCard>
                               ),
                               if (runtimeText != null) ...[
                                 const SizedBox(height: 2),
-                                // The runtime and the beside badge are in a row 
-                                // so that the badge is always aligned with the runtime text, 
-                                // even if the text wraps to two lines.
-                                Row(
-                                  crossAxisAlignment: CrossAxisAlignment.center,
-                                  children: [
-                                    Text(
-                                      runtimeText,
-                                      style: Theme.of(context).textTheme.bodySmall
-                                          ?.copyWith(
-                                            color: AppColorScheme.onSurface
-                                                .withValues(alpha: 0.8),
-                                          ),
-                                      maxLines: 1,
-                                    ),
-                                    Flexible(
-                                      child: AnimeMarkerBadge(
-                                        seriesId: episode.seriesId,
-                                        episodeId: episode.id,
-                                        scale: desktopScale,
-                                        slot: AnimeMarkerPlacement.beside,
-                                        padding: const EdgeInsets.only(left: 8),
-                                      ),
-                                    ),
-                                  ],
+                                // A bage besides the runtime with when a overlow happens,
+                                // the overlow is returned underneath the runtime.
+                                AnimeMarkerBadge(
+                                  seriesId: episode.seriesId,
+                                  episodeId: episode.id,
+                                  scale: desktopScale,
+                                  slot: AnimeMarkerPlacement.beside,
+                                  leading: Text(
+                                    runtimeText,
+                                    style: Theme.of(context).textTheme.bodySmall
+                                        ?.copyWith(
+                                          color: AppColorScheme.onSurface
+                                              .withValues(alpha: 0.8),
+                                        ),
+                                    maxLines: 1,
+                                  ),
                                 ),
                               ],
                               AnimeMarkerBadge(
