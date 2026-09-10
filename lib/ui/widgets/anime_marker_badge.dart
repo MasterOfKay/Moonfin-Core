@@ -9,7 +9,7 @@ import '../../l10n/app_localizations.dart';
 const bool kAnimeMarkerDebug = false;
 
 /// Whether to show anime markers.
-const bool kAnimeMarkersEnabled = false;
+const bool kAnimeMarkersEnabled = true;
 
 /// A badge for an episode card, shown only when there is something worth warning about:
 /// filler, mixed canon/filler, or a recap. Everything else renders nothing at all, so a
