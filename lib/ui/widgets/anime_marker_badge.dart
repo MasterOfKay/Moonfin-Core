@@ -8,6 +8,9 @@ import '../../l10n/app_localizations.dart';
 /// Debug Pill to see what it resposnds for each epsiode.
 const bool kAnimeMarkerDebug = false;
 
+/// Whether to show anime markers.
+const bool kAnimeMarkersEnabled = true;
+
 /// A badge for an episode card, shown only when there is something worth warning about:
 /// filler, mixed canon/filler, or a recap. Everything else renders nothing at all, so a
 /// mixed library of anime and ordinary shows is untouched outside the anime that matched.
@@ -86,6 +89,8 @@ class _AnimeMarkerBadgeState extends State<AnimeMarkerBadge> {
   }
 
   Future<void> _load() async {
+    if (!kAnimeMarkersEnabled) return;
+
     final seriesId = widget.seriesId;
     if (seriesId == null || seriesId.isEmpty) {
       _note('no-seriesId');
@@ -135,6 +140,8 @@ class _AnimeMarkerBadgeState extends State<AnimeMarkerBadge> {
 
   @override
   Widget build(BuildContext context) {
+    if (!kAnimeMarkersEnabled) return widget.leading ?? const SizedBox.shrink();
+
     // Standing in a slot the server did not choose. Any leading widget still belongs on
     // screen; only the pills move elsewhere.
     if (widget.slot != null &&
@@ -299,6 +306,8 @@ class _AnimeSeasonAudioBadgeState extends State<AnimeSeasonAudioBadge> {
   }
 
   Future<void> _load() async {
+    if (!kAnimeMarkersEnabled) return;
+
     final seriesId = widget.seriesId;
     if (seriesId == null || seriesId.isEmpty) return;
     if (!GetIt.instance.isRegistered<AnimeMarkerRepository>()) return;
@@ -385,6 +394,8 @@ class _AnimeItemAudioBadgeState extends State<AnimeItemAudioBadge> {
   }
 
   Future<void> _load() async {
+    if (!kAnimeMarkersEnabled) return;
+
     if (widget.itemId.isEmpty) return;
     if (!GetIt.instance.isRegistered<AnimeMarkerRepository>()) return;
 
