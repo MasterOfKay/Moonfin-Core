@@ -106,6 +106,10 @@ class AnimeMarkerRepository {
   /// again on every rebuild.
   final _itemAsked = <String>{};
 
+  /// Item ids that failed to fetch, and when they did. 
+  /// A card that failed is retried after a cooldown rather than on every rebuild.
+  final _itemFailedAt = <String, DateTime>{};
+
   final _pendingItemBatch = <String>{};
   Timer? _itemBatchTimer;
   final _itemBatchWaiters = <Completer<void>>[];
@@ -318,13 +322,24 @@ class AnimeMarkerRepository {
       return _itemAudio[normalized];
     }
 
+    final failedAt = _itemFailedAt[normalized];
+    if (failedAt != null &&
+        DateTime.now().difference(failedAt) < _negativeCacheTtl) {
+      return null;
+    }
+
     _pendingItemBatch.add(normalized);
 
     final waiter = Completer<void>();
     _itemBatchWaiters.add(waiter);
 
-    _itemBatchTimer?.cancel();
-    _itemBatchTimer = Timer(const Duration(milliseconds: 60), _flushItemBatch);
+    // Batch the requests so a screen full of cards does not flood the plugin with one request per card. 
+    // The timer is reset on every card, so the batch is sent after a short pause once all the cards have asked. 
+    // The batch is sent even if the screen is rebuilt before the timer fires
+    _itemBatchTimer ??= Timer(const Duration(milliseconds: 60), () {
+      _itemBatchTimer = null;
+      _flushItemBatch();
+    });
 
     await waiter.future;
     return _itemAudio[normalized];
@@ -376,8 +391,14 @@ class AnimeMarkerRepository {
       }
 
       _itemAsked.addAll(ids);
+      for (final id in ids) {
+        _itemFailedAt.remove(id);
+      }
     } catch (_) {
-      // Left unasked so it is retried, rather than remembered as having no verdict.
+      final now = DateTime.now();
+      for (final id in ids) {
+        _itemFailedAt[id] = now;
+      }
     } finally {
       release();
     }
@@ -388,6 +409,7 @@ class AnimeMarkerRepository {
     _seasonAudio.clear();
     _itemAudio.clear();
     _itemAsked.clear();
+    _itemFailedAt.clear();
     _negativeCache.clear();
     _pendingSeries.clear();
     _unavailableSince = null;
