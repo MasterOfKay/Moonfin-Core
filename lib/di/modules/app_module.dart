@@ -39,6 +39,7 @@ import '../../data/services/row_data_source.dart';
 import '../../data/services/socket_handler.dart';
 import '../../data/services/pending_rating_store.dart';
 import '../../data/services/sync_service.dart';
+import '../../data/services/user_data_sync.dart';
 import '../../data/services/theme_music_service.dart';
 import '../../data/viewmodels/media_bar_view_model.dart';
 import '../../data/viewmodels/seerr_discover_view_model.dart';
@@ -74,6 +75,8 @@ void resetUserScopedSingletons() {
   unregister<SearchRepository>();
   unregister<UserViewsRepository>();
   unregister<GameLibraryRegistry>();
+  // Watched state is per user, so the next account must not inherit it.
+  userDataSync.reset();
 
   _registerUserScopedSingletons();
 }

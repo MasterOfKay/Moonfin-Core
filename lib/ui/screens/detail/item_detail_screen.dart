@@ -6,7 +6,7 @@ import '../../widgets/offline_aware_image.dart';
 import '../../widgets/anime_marker_badge.dart';
 import '../../../data/repositories/anime_marker_repository.dart';
 import '../../widgets/identify_dialog.dart';
-import '../../widgets/focus/context_action.dart' show canIdentifyItemType;
+import 'detail_admin_actions.dart';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -344,6 +344,7 @@ class _ItemDetailScreenState extends State<ItemDetailScreen>
   @override
   void didPopNext() {
     super.didPopNext();
+    unawaited(_viewModel.syncUserDataIfStale());
     final item = _viewModel.item;
     if (item != null) {
       _backgroundService.setBackground(item, context: BlurContext.details);
@@ -6646,11 +6647,7 @@ class DetailActionButtonsState extends State<DetailActionButtons> {
           onPressed: () =>
               showSeerrManageRequestsSheet(context: context, vm: seerr),
         ),
-      if ((GetIt.instance<UserRepository>().currentUser?.isAdministrator ??
-              false) &&
-          GetIt.instance<MediaServerClient>().serverType ==
-              ServerType.jellyfin &&
-          shows(DetailButton.admin))
+      if (_adminActionsFor(item).isNotEmpty && shows(DetailButton.admin))
         DetailButton.admin: _DetailActionButton(
           label: l10n.admin,
           icon: Icons.settings,
@@ -7243,8 +7240,20 @@ class DetailActionButtonsState extends State<DetailActionButtons> {
     return '${m}m';
   }
 
+  Set<DetailAdminAction> _adminActionsFor(AggregatedItem item) =>
+      detailAdminActions(
+        serverType: GetIt.instance<MediaServerClient>().serverType,
+        isAdministrator:
+            GetIt.instance<UserRepository>().currentUser?.isAdministrator ??
+            false,
+        isTV: PlatformDetection.isTV,
+        itemType: item.type,
+        canDelete: item.canDelete,
+      );
+
   void _showAdminDialog(BuildContext context, AggregatedItem item) {
     final l10n = AppLocalizations.of(context);
+    final actions = _adminActionsFor(item);
     showDialog(
       context: context,
       builder: (dialogCtx) {
@@ -7260,7 +7269,7 @@ class DetailActionButtonsState extends State<DetailActionButtons> {
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              if (canIdentifyItemType(item.type))
+              if (actions.contains(DetailAdminAction.identify))
                 Focus(
                   onKeyEvent: (_, event) {
                     if (isActivateKey(event)) {
@@ -7323,7 +7332,7 @@ class DetailActionButtonsState extends State<DetailActionButtons> {
                     },
                   ),
                 ),
-              if (!PlatformDetection.isTV)
+              if (actions.contains(DetailAdminAction.editMetadata))
                 Focus(
                   onKeyEvent: (_, event) {
                     if (isActivateKey(event)) {
@@ -7370,60 +7379,61 @@ class DetailActionButtonsState extends State<DetailActionButtons> {
                     },
                   ),
                 ),
-              Focus(
-                onKeyEvent: (_, event) {
-                  if (isActivateKey(event)) {
-                    Navigator.of(dialogCtx).pop();
-                    ChangeArtworkDialog.show(context, item: item).then((
-                      changed,
-                    ) {
-                      if (changed == true) {
-                        viewModel.load();
-                      }
-                    });
-                    return KeyEventResult.handled;
-                  }
-                  return KeyEventResult.ignored;
-                },
-                child: Builder(
-                  builder: (buttonCtx) {
-                    final hasFocus = Focus.of(buttonCtx).hasFocus;
-                    return InkWell(
-                      onTap: () async {
-                        Navigator.of(dialogCtx).pop();
-                        final changed = await ChangeArtworkDialog.show(
-                          context,
-                          item: item,
-                        );
+              if (actions.contains(DetailAdminAction.changeArtwork))
+                Focus(
+                  onKeyEvent: (_, event) {
+                    if (isActivateKey(event)) {
+                      Navigator.of(dialogCtx).pop();
+                      ChangeArtworkDialog.show(context, item: item).then((
+                        changed,
+                      ) {
                         if (changed == true) {
                           viewModel.load();
                         }
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          vertical: 12,
-                          horizontal: 16,
-                        ),
-                        decoration: BoxDecoration(
-                          color: hasFocus ? Colors.white12 : Colors.transparent,
-                          borderRadius: AppRadius.circular(8),
-                        ),
-                        child: Row(
-                          children: [
-                            const Icon(Icons.image, color: Colors.white70),
-                            const SizedBox(width: 12),
-                            Text(
-                              l10n.changeArtwork,
-                              style: const TextStyle(color: Colors.white),
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
+                      });
+                      return KeyEventResult.handled;
+                    }
+                    return KeyEventResult.ignored;
                   },
+                  child: Builder(
+                    builder: (buttonCtx) {
+                      final hasFocus = Focus.of(buttonCtx).hasFocus;
+                      return InkWell(
+                        onTap: () async {
+                          Navigator.of(dialogCtx).pop();
+                          final changed = await ChangeArtworkDialog.show(
+                            context,
+                            item: item,
+                          );
+                          if (changed == true) {
+                            viewModel.load();
+                          }
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            vertical: 12,
+                            horizontal: 16,
+                          ),
+                          decoration: BoxDecoration(
+                            color: hasFocus ? Colors.white12 : Colors.transparent,
+                            borderRadius: AppRadius.circular(8),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.image, color: Colors.white70),
+                              const SizedBox(width: 12),
+                              Text(
+                                l10n.changeArtwork,
+                                style: const TextStyle(color: Colors.white),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
                 ),
-              ),
-              if (item.canDelete)
+              if (actions.contains(DetailAdminAction.delete))
                 Focus(
                   onKeyEvent: (_, event) {
                     if (isActivateKey(event)) {
